@@ -1,0 +1,37 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'de.restekoch.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'de.restekoch.app'
+        minSdk 26
+        targetSdk 34
+        versionCode 2
+        versionName '1.1'
+    }
+
+    // Feste Signatur: So lassen sich neue Versionen über die alte installieren.
+    signingConfigs {
+        restekoch {
+            storeFile file('restekoch.keystore')
+            storePassword 'restekoch123'
+            keyAlias 'restekoch'
+            keyPassword 'restekoch123'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.restekoch
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
