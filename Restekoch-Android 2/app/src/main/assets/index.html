@@ -1,9 +1,14 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Restekoch AI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
-<script src="lib/tailwind.js"></script>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script>
   const tok = (v) => `rgb(var(--${v}) / <alpha-value>)`;
   tailwind.config = {
@@ -76,15 +81,15 @@
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
   }
 </style>
+</head>
+<body>
 <div id="root"></div>
 
-<script src="lib/react.js"></script>
-<script src="lib/react-dom.js"></script>
-<script src="lib/htm.js"></script>
-<script src="lib/marked.js"></script>
-<script src="lib/purify.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
 <script>window.react = window.React; /* lucide-react's UMD build looks for a lowercase global */</script>
-<script src="lib/lucide-react.js"></script>
+<script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js"></script>
 <script>
 const { useState, useEffect, useRef } = React;
 const html = htm.bind(React.createElement);
@@ -96,7 +101,83 @@ const SUGGEST = ['Eier', 'Milch', 'Tomaten', 'Käse', 'Nudeln', 'Reis', 'Zwiebel
 const EXAMPLE_FRIDGE = ['Eier', 'Tomaten', 'Käse', 'Nudeln'];
 const DEMO_SCAN = ['Eier', 'Tomaten', 'Gouda', 'Milch', 'Zucchini', 'Naturjoghurt', 'Paprika'];
 
+/* Saisonkalender für regionales Obst und Gemüse aus Deutschland.
+   s = Freiland-/Erntesaison, l = regional aus dem Lager (Monate 1–12). */
+const span = (from, to) => { const out = [from]; for (let m = from; m !== to; ) { m = (m % 12) + 1; out.push(m); } return out; };
+const SEASON = [
+  // Gemüse
+  { n: 'Spargel', c: 'g', e: '🌱', s: span(4, 6) },
+  { n: 'Radieschen', c: 'g', e: '🥕', s: span(4, 9) },
+  { n: 'Kohlrabi', c: 'g', e: '🥦', s: span(5, 10) },
+  { n: 'Kopfsalat', c: 'g', e: '🥬', s: span(5, 10) },
+  { n: 'Spitzkohl', c: 'g', e: '🥬', s: span(5, 10) },
+  { n: 'Spinat', c: 'g', e: '🥬', s: [3, 4, 5, 9, 10, 11] },
+  { n: 'Erbsen', c: 'g', e: '🫛', s: span(6, 8) },
+  { n: 'Zucchini', c: 'g', e: '🥒', s: span(6, 9) },
+  { n: 'Gurken', c: 'g', e: '🥒', s: span(6, 9) },
+  { n: 'Brokkoli', c: 'g', e: '🥦', s: span(6, 10) },
+  { n: 'Blumenkohl', c: 'g', e: '🥦', s: span(6, 10) },
+  { n: 'Fenchel', c: 'g', e: '🥬', s: span(6, 10) },
+  { n: 'Mangold', c: 'g', e: '🥬', s: span(6, 10) },
+  { n: 'Kartoffeln', c: 'g', e: '🥔', s: span(6, 10), l: span(11, 5) },
+  { n: 'Möhren', c: 'g', e: '🥕', s: span(6, 11), l: span(12, 4) },
+  { n: 'Grüne Bohnen', c: 'g', e: '🫘', s: span(7, 9) },
+  { n: 'Tomaten', c: 'g', e: '🍅', s: span(7, 10) },
+  { n: 'Paprika', c: 'g', e: '🫑', s: span(7, 9) },
+  { n: 'Zwiebeln', c: 'g', e: '🧅', s: span(7, 10), l: span(11, 4) },
+  { n: 'Rote Bete', c: 'g', e: '🥕', s: span(7, 11), l: span(12, 3) },
+  { n: 'Weißkohl', c: 'g', e: '🥬', s: span(7, 11), l: span(12, 3) },
+  { n: 'Lauch', c: 'g', e: '🥬', s: span(7, 3) },
+  { n: 'Auberginen', c: 'g', e: '🍆', s: span(8, 9) },
+  { n: 'Mais', c: 'g', e: '🌽', s: span(8, 9) },
+  { n: 'Rotkohl', c: 'g', e: '🥬', s: span(8, 11), l: span(12, 3) },
+  { n: 'Kürbis', c: 'g', e: '🎃', s: span(8, 11), l: span(12, 1) },
+  { n: 'Sellerie', c: 'g', e: '🥕', s: span(9, 11), l: span(12, 3) },
+  { n: 'Wirsing', c: 'g', e: '🥬', s: span(7, 3) },
+  { n: 'Rosenkohl', c: 'g', e: '🥦', s: span(10, 2) },
+  { n: 'Feldsalat', c: 'g', e: '🥬', s: span(10, 3) },
+  { n: 'Chicorée', c: 'g', e: '🥬', s: span(10, 3) },
+  { n: 'Pastinaken', c: 'g', e: '🥕', s: span(10, 3) },
+  { n: 'Schwarzwurzeln', c: 'g', e: '🥕', s: span(10, 3) },
+  { n: 'Topinambur', c: 'g', e: '🥔', s: span(10, 3) },
+  { n: 'Steckrüben', c: 'g', e: '🥕', s: span(10, 2) },
+  { n: 'Grünkohl', c: 'g', e: '🥬', s: span(11, 2) },
+  { n: 'Champignons', c: 'g', e: '🍄', s: span(1, 12) },
+  // Obst
+  { n: 'Rhabarber', c: 'o', e: '🌱', s: span(4, 6) },
+  { n: 'Erdbeeren', c: 'o', e: '🍓', s: span(5, 7) },
+  { n: 'Kirschen', c: 'o', e: '🍒', s: span(6, 7) },
+  { n: 'Stachelbeeren', c: 'o', e: '🫐', s: span(6, 7) },
+  { n: 'Himbeeren', c: 'o', e: '🫐', s: span(6, 8) },
+  { n: 'Johannisbeeren', c: 'o', e: '🫐', s: span(6, 8) },
+  { n: 'Heidelbeeren', c: 'o', e: '🫐', s: span(7, 9) },
+  { n: 'Aprikosen', c: 'o', e: '🍑', s: span(7, 8) },
+  { n: 'Pfirsiche', c: 'o', e: '🍑', s: span(7, 9) },
+  { n: 'Mirabellen', c: 'o', e: '🍑', s: [8] },
+  { n: 'Brombeeren', c: 'o', e: '🫐', s: span(8, 9) },
+  { n: 'Zwetschgen', c: 'o', e: '🍑', s: span(8, 10) },
+  { n: 'Äpfel', c: 'o', e: '🍎', s: span(8, 11), l: span(12, 5) },
+  { n: 'Birnen', c: 'o', e: '🍐', s: span(8, 10), l: span(11, 1) },
+  { n: 'Weintrauben', c: 'o', e: '🍇', s: span(9, 10) },
+  { n: 'Quitten', c: 'o', e: '🍐', s: span(9, 11) },
+  // Kräuter
+  { n: 'Bärlauch', c: 'k', e: '🌿', s: span(3, 4) },
+  { n: 'Schnittlauch', c: 'k', e: '🌿', s: span(4, 9) },
+  { n: 'Petersilie', c: 'k', e: '🌿', s: span(5, 10) },
+  { n: 'Dill', c: 'k', e: '🌿', s: span(6, 8) },
+  { n: 'Basilikum', c: 'k', e: '🌿', s: span(6, 9) },
+];
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const thisMonth = () => new Date().getMonth() + 1;
+const inSeason = (m) => SEASON.filter((x) => x.s.includes(m));
+
 const EMOJI = [
+  [/bärlauch|kräuter|basilikum|petersilie|schnittlauch|dill/, '🌿'], [/erdbeer/, '🍓'], [/kirsch/, '🍒'], [/beere/, '🫐'],
+  [/kürbis/, '🎃'], [/birne|quitte/, '🍐'], [/traube/, '🍇'], [/pfirsich|aprikose|mirabell|pflaume|zwetsch/, '🍑'],
+  [/aubergine/, '🍆'], [/erbse/, '🫛'], [/spargel|rhabarber/, '🌱'],
+  [/pastinak|schwarzwurzel|steckrüb|rote bete|radieschen|sellerie/, '🥕'], [/topinambur/, '🥔'],
+  [/lauch|fenchel|mangold|wirsing|chicorée/, '🥬'],
   [/^eier?$|eier\b/, '🥚'], [/tomate/, '🍅'], [/käse|gouda|parmesan|feta|mozzarella|emmentaler|cheddar/, '🧀'],
   [/nudel|pasta|spaghetti|penne|fusilli/, '🍝'], [/milch|sahne/, '🥛'], [/joghurt|quark|skyr/, '🥣'],
   [/zucchini|gurke/, '🥒'], [/paprika/, '🫑'], [/karotte|möhre/, '🥕'], [/kartoffel/, '🥔'], [/zwiebel/, '🧅'],
@@ -109,6 +190,7 @@ const EMOJI = [
 ];
 const emojiFor = (name) => { const n = name.toLowerCase(); const hit = EMOJI.find(([re]) => re.test(n)); return hit ? hit[1] : '🍽️'; };
 
+// Beispielrezepte im gleichen Format, wie Claude sie liefert (siehe RECIPE_SCHEMA).
 /* ---------- Ersatz-Tipps ----------
    name: Anzeigename, re: erkennt die Zutat in Rezepttext / fehlenden Zutaten.
    subs: Alternativen. needs: Zutaten, die man dafür braucht (zum Abgleich mit dem Kühlschrank; Basics zählen als vorhanden). */
@@ -233,7 +315,7 @@ function tipsFor(r) {
     const s = findSub(m);
     out.push({ key: 'm:' + m, label: m, entry: s, missing: true });
   }
-  const text = r.steps.join(' ').toLowerCase();
+  const text = [...r.steps, ...(r.rows || []).flatMap((x) => x.ingredients || [])].join(' ').toLowerCase();
   for (const s of SUBS) {
     if (out.some((o) => o.entry === s)) continue;
     if (s.name === 'Käse' && out.some((o) => o.entry && /parmesan|mozzarella|feta/i.test(o.entry.name))) continue;
@@ -243,66 +325,34 @@ function tipsFor(r) {
   return out;
 }
 
-const DEMO_MD = `# Kategorie 1: Sofort kochbar (Zero-Waste)
-
-## Tomaten-Käse-Nudeln
-**Zubereitungszeit:** 20 Minuten
-
-1. Nudeln in reichlich Salzwasser nach Packungsanweisung kochen.
-2. Tomaten würfeln und in einer Pfanne mit etwas Öl 5–7 Minuten zu einer stückigen Sauce einkochen. Mit Salz, Pfeffer und einer Prise Zucker abschmecken.
-3. Nudeln abgießen, dabei eine Tasse Nudelwasser auffangen.
-4. Nudeln zur Sauce geben, Käse reiben und unterheben. Mit etwas Nudelwasser cremig rühren.
-
-## Nudel-Frittata mit Tomaten
-**Zubereitungszeit:** 25 Minuten
-
-1. Nudeln kochen, abgießen und kurz abkühlen lassen. Reste vom Vortag gehen auch.
-2. 4 Eier verquirlen, die Hälfte des Käses hineinreiben, mit Salz und Pfeffer würzen.
-3. Nudeln in einer geölten Pfanne verteilen, Eimasse darübergießen.
-4. Tomatenscheiben auflegen, restlichen Käse darüberstreuen.
-5. Mit Deckel bei mittlerer Hitze 10–12 Minuten stocken lassen.
-
-## Shakshuka-Style Tomaten-Eier
-**Zubereitungszeit:** 20 Minuten
-
-1. Tomaten klein schneiden und in Öl 10 Minuten zu einer dicken Sauce einkochen. Mit Salz, Pfeffer und Zucker würzen.
-2. Mit einem Löffel Mulden in die Sauce drücken und je ein Ei hineinschlagen.
-3. Käse darüberreiben, Deckel drauf und 5–7 Minuten garen, bis das Eiweiß gestockt ist.
-
-# Kategorie 2: Erweiterte Rezepte (Erfordert kleinen Einkauf)
-
-## Spaghetti Carbonara
-**Zubereitungszeit:** 20 Minuten
-
-**🛒 FEHLENDE ZUTATEN: Speck, Knoblauch**
-
-1. Nudeln in Salzwasser kochen.
-2. Speck würfeln und mit gehacktem Knoblauch knusprig anbraten.
-3. 3 Eigelb mit viel geriebenem Käse und Pfeffer verrühren.
-4. Nudeln abgießen, Nudelwasser aufheben, zum Speck geben und die Pfanne vom Herd nehmen.
-5. Eimasse unterrühren und mit Nudelwasser cremig machen. Tomaten als frischen Salat dazu servieren.
-
-## Überbackener Nudelauflauf mit Tomaten
-**Zubereitungszeit:** 45 Minuten
-
-**🛒 FEHLENDE ZUTATEN: Sahne, Zwiebel**
-
-1. Ofen auf 200 °C vorheizen. Nudeln 2 Minuten kürzer als angegeben kochen.
-2. Zwiebel würfeln und anbraten, gewürfelte Tomaten dazugeben und kurz mitkochen.
-3. 2 Eier mit 200 ml Sahne verquirlen, salzen und pfeffern.
-4. Nudeln und Tomatensauce in eine Auflaufform geben, Eiersahne darübergießen.
-5. Großzügig mit Käse bestreuen und 20–25 Minuten goldbraun backen.
-
-## Caprese-Nudelsalat mit Ei
-**Zubereitungszeit:** 25 Minuten
-
-**🛒 FEHLENDE ZUTATEN: Basilikum, Balsamico-Essig**
-
-1. Nudeln kochen und kalt abschrecken.
-2. 2–3 Eier 9 Minuten hart kochen, abschrecken, pellen und vierteln.
-3. Tomaten und Käse würfeln.
-4. Dressing aus Öl, Balsamico, Salz, Pfeffer und einer Prise Zucker anrühren.
-5. Alles vermengen, mit gezupftem Basilikum toppen und 10 Minuten ziehen lassen.`;
+const DEMO_RECIPES = [
+  { name: 'Tomaten-Käse-Nudeln', category: 'sofort', time_minutes: 20, servings: 2, missing: [], rows: [
+    { ingredients: ['2 l Wasser', '1 TL Salz'], steps: ['in einem großen Topf auf Stufe 9 zum Kochen bringen', 'salzen'], tools: ['großer Topf mit Deckel'] },
+    { ingredients: ['250 g Nudeln'], steps: ['ins kochende Wasser geben', 'auf Stufe 6 nach Packungsangabe bissfest garen'], tools: ['Kochlöffel'] },
+    { ingredients: ['3 Tomaten'], steps: ['waschen', 'Stielansatz entfernen', 'in kleine Würfel schneiden'], tools: ['Schneidebrett', 'Küchenmesser'] },
+    { ingredients: ['1 EL Öl'], steps: ['in einer Pfanne auf Stufe 6 erhitzen', 'Tomatenwürfel darin etwa 5 min schmoren'], tools: ['Pfanne', 'Pfannenwender'] },
+    { ingredients: ['½ TL Salz', 'etwas Pfeffer', '1 Prise Zucker'], steps: ['zu den Tomaten geben', 'abschmecken'], tools: ['Teelöffel'] },
+    { ingredients: ['100 g Käse'], steps: ['fein reiben'], tools: ['Reibe', 'Teller'] },
+    { ingredients: [], steps: ['Nudeln abgießen, dabei 1 Tasse Nudelwasser auffangen', 'Nudeln, Sauce und Käse vermengen', 'mit etwas Nudelwasser cremig rühren'], tools: ['Sieb', 'Tasse'] },
+  ] },
+  { name: 'Shakshuka-Style Tomaten-Eier', category: 'sofort', time_minutes: 20, servings: 2, missing: [], rows: [
+    { ingredients: ['4 Tomaten'], steps: ['waschen', 'Stielansatz entfernen', 'in kleine Würfel schneiden'], tools: ['Schneidebrett', 'Küchenmesser'] },
+    { ingredients: ['1 EL Öl'], steps: ['in einer Pfanne auf Stufe 6 erhitzen', 'Tomaten dazugeben und etwa 10 min einkochen'], tools: ['Pfanne mit Deckel', 'Kochlöffel'] },
+    { ingredients: ['½ TL Salz', 'etwas Pfeffer', '1 Prise Zucker'], steps: ['in die Pfanne geben und alles verrühren'], tools: ['Teelöffel'] },
+    { ingredients: ['4 Eier'], steps: ['mit dem Löffel 4 Mulden in die Sauce drücken', 'je ein Ei hineinschlagen'], tools: ['Esslöffel'] },
+    { ingredients: ['50 g Käse'], steps: ['reiben', 'über die Eier streuen'], tools: ['Reibe'] },
+    { ingredients: [], steps: ['bei geschlossenem Deckel auf Stufe 3 etwa 6 min garen, bis das Eiweiß fest ist'], tools: [] },
+  ] },
+  { name: 'Spaghetti Carbonara', category: 'einkauf', time_minutes: 20, servings: 2, missing: ['Speck', 'Knoblauch'], rows: [
+    { ingredients: ['2 l Wasser', '1 TL Salz'], steps: ['in einem großen Topf auf Stufe 9 zum Kochen bringen', 'salzen'], tools: ['großer Topf mit Deckel'] },
+    { ingredients: ['250 g Spaghetti'], steps: ['ins kochende Wasser geben', 'auf Stufe 6 bissfest garen'], tools: ['Kochlöffel'] },
+    { ingredients: ['100 g Speck'], steps: ['in kleine Würfel schneiden'], tools: ['Schneidebrett', 'Küchenmesser'] },
+    { ingredients: ['1 Knoblauchzehe'], steps: ['schälen', 'fein hacken'], tools: ['Schneidebrett', 'Küchenmesser'] },
+    { ingredients: [], steps: ['Speck und Knoblauch ohne Fett auf Stufe 6 knusprig anbraten'], tools: ['Pfanne', 'Pfannenwender'] },
+    { ingredients: ['3 Eier', '80 g Käse', 'etwas Pfeffer'], steps: ['Eier verquirlen', 'Käse fein reiben und unterrühren', 'pfeffern'], tools: ['Schüssel', 'Schneebesen', 'Reibe'] },
+    { ingredients: [], steps: ['Nudeln abgießen und in die Pfanne geben', 'Pfanne vom Herd nehmen', 'Eimasse schnell unterrühren'], tools: ['Sieb'] },
+  ] },
+];
 
 const LOADING_LINES = ['Schaut in den Kühlschrank …', 'Kombiniert deine Reste …', 'Schmeckt ab …', 'Schreibt die Einkaufsliste …'];
 
@@ -314,36 +364,26 @@ const store = {
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>');
 const plain = (s) => s.replace(/\*\*|__|[*_`]/g, '').replace(/🛒|⏱️?/g, '').trim();
-const afterColon = (s) => plain(s.includes(':') ? s.slice(s.indexOf(':') + 1) : s);
 const minutesOf = (t) => { const m = (t || '').match(/\d+/); return m ? +m[0] : null; };
 
-// Markdown des Chefkoch-Prompts in Kategorien und Rezepte zerlegen.
-function parseRecipes(md) {
-  const cats = [];
-  let cat = null, rec = null;
-  for (const raw of md.split('\n')) {
-    const line = raw.trim();
-    if (!line || /^-{3,}$/.test(line)) continue;
-    if (/^#\s/.test(line)) {
-      const title = plain(line.replace(/^#\s*/, ''));
-      cat = { kind: /kategorie\s*2|erweitert|einkauf/i.test(title) ? 'shop' : 'now', title, recipes: [] };
-      cats.push(cat); rec = null; continue;
-    }
-    if (/^#{2,3}\s/.test(line)) {
-      if (!cat) { cat = { kind: 'now', title: 'Rezepte', recipes: [] }; cats.push(cat); }
-      rec = { id: '', name: plain(line.replace(/^#+\s*(\d+\.\s*)?/, '')), time: '', missing: [], steps: [], kind: cat.kind };
-      rec.id = rec.name.toLowerCase().replace(/[^a-zäöüß0-9]+/g, '-');
-      cat.recipes.push(rec); continue;
-    }
-    if (!rec) continue;
-    if (/zubereitungszeit/i.test(line)) { rec.time = afterColon(line); continue; }
-    if (/fehlende/i.test(line)) {
-      rec.missing = afterColon(line).split(/,|\s+und\s+/).map((x) => x.replace(/\(.*?\)/g, '').trim()).filter(Boolean);
-      continue;
-    }
-    if (/^(\d+[.)]|[-*•])\s+/.test(line)) { rec.steps.push(line.replace(/^(\d+[.)]|[-*•])\s+/, '')); continue; }
-  }
-  return cats.filter((c) => c.recipes.length);
+// Antwort des Chefkochs (RECIPE_SCHEMA) in die Rezeptform der App bringen.
+function toRecipe(x) {
+  const kind = x.category === 'einkauf' ? 'shop' : 'now';
+  const rows = (x.rows || []).map((r) => ({ ingredients: r.ingredients || [], steps: r.steps || [], tools: r.tools || [] }));
+  return {
+    id: x.name.toLowerCase().replace(/[^a-zäöüß0-9]+/g, '-'),
+    name: x.name, kind, rows,
+    time: x.time_minutes ? `${x.time_minutes} Minuten` : '',
+    servings: x.servings || null,
+    missing: kind === 'shop' ? (x.missing || []).map((m) => m.replace(/\s*\(.*?\)/g, '').trim()).filter(Boolean) : [],
+    steps: rows.flatMap((r) => r.steps),
+  };
+}
+function groupRecipes(list) {
+  const all = list.map(toRecipe);
+  return [['now', 'Sofort kochbar'], ['shop', 'Mit kleinem Einkauf']]
+    .map(([kind, title]) => ({ kind, title, recipes: all.filter((r) => r.kind === kind) }))
+    .filter((c) => c.recipes.length);
 }
 
 function resizeImage(file, maxSide = 1568) {
@@ -363,8 +403,157 @@ function resizeImage(file, maxSide = 1568) {
   });
 }
 
-// Ruft das Backend auf. Ist keins erreichbar (z. B. Vorschau ohne Server), kommt { demo: true } zurück.
-async function api(url, body) {
+/* ---------- KI-Anbindung ----------
+   Mit eigenem API-Schlüssel (Einstellungen) spricht die App direkt mit Claude, ganz ohne Server.
+   Ohne Schlüssel nutzt sie das Express-Backend; ist keins erreichbar, gibt es Beispieldaten. */
+const MODELS = {
+  'claude-opus-5-5': { name: 'Opus 5.5', note: 'Beste Qualität · ca. 3–6 Cent pro Rezept' },
+  'claude-haiku-5-5': { name: 'Haiku 5.5', note: 'Sehr günstig · unter 0,2 Cent pro Rezept' },
+};
+const DEFAULT_MODEL = 'claude-opus-5-5';
+const getModel = () => { const m = store.get('model', DEFAULT_MODEL); return MODELS[m] ? m : DEFAULT_MODEL; };
+
+// Gleiche Prompts wie in prompts.js.
+const VISION_PROMPT = `Du bist das Bilderkennungs-Modul einer intelligenten Kühlschrank-App.
+Deine Aufgabe ist es, das hochgeladene Foto eines Kühlschranks oder einer Vorratskammer präzise zu analysieren.
+
+Identifiziere alle sichtbaren Lebensmittel, Gemüse, Proteine, Milchprodukte, Saucen und Reste.
+
+Gib das Ergebnis AUSSCHLIESSLICH als valides JSON-Array aus, das die erkannten Lebensmittel auf Deutsch enthält. Schreibe keinerlei Smalltalk, Einleitung oder Erklärung. Wenn du nichts erkennst, gib ein leeres Array zurück.
+
+Beispiel für das Ausgabeformat:
+[
+  "Tomaten",
+  "Eier",
+  "Milch",
+  "Magerquark",
+  "Gouda",
+  "Zucchini"
+]`;
+
+const CHEF_PROMPT = `Du bist der Chefkoch-Algorithmus der App "Restekoch AI".
+Deine Aufgabe ist es, basierend auf einer Liste vorhandener Zutaten kreative und leckere Rezeptvorschläge zu generieren.
+
+Die Liste der vorhandenen Zutaten des Nutzers steht in der Nutzernachricht.
+
+Ergänzend darfst du davon ausgehen, dass grundlegende Basis-Zutaten (Salz, Pfeffer, Speiseöl, Wasser, Zucker) in jedem Haushalt vorhanden sind.
+
+Teile deine Antwort zwingend in zwei Kategorien ein:
+
+Kategorie 1: "Sofort kochbar" (Zero-Waste)
+- Generiere 2-3 Rezepte, die AUSSCHLIESSLICH mit den vorhandenen Zutaten und den Basis-Zutaten zubereitet werden können.
+
+Kategorie 2: "Erweiterte Rezepte" (Erfordert kleinen Einkauf)
+- Generiere 2-3 Rezepte, bei denen der Nutzer mindestens 60-70% der Zutaten bereits besitzt.
+- Nenne für jedes dieser Rezepte ganz explizit und prominent, welche Zutaten FEHLEN und auf die Einkaufsliste müssen.
+
+Gib jedes Rezept wie ein Rezeptblatt aus dem Hauswirtschaftsunterricht aus: eine Tabelle mit den Spalten „Mengen/Zutaten“, „Zubereitung“ und „Arbeitsgeräte“.
+- Jede Zeile (rows) verbindet eine Zutat oder eine kleine Gruppe zusammengehöriger Zutaten mit genauer Mengenangabe (z. B. „1,5 Tassen Reis“, „½ Dose Mais“, „2 TL Tomatenmark“) mit den Arbeitsschritten für genau diese Zutaten als kurze Stichpunkte (z. B. „waschen“, „in kleine Würfel schneiden“) und den dafür nötigen Arbeitsgeräten (z. B. „Schneidebrett“, „Küchenmesser“, „große Pfanne mit Deckel“).
+- Die Zeilen stehen in der Reihenfolge der Zubereitung. Schritte ohne neue Zutat (z. B. Garen, Umrühren, Anrichten) bekommen eine eigene Zeile mit leerer Zutatenliste.
+- Basis-Zutaten werden mit Menge aufgeführt, wenn das Rezept sie braucht.
+- Nenne Herdstufen und Garzeiten konkret (z. B. „bei geschlossenem Deckel auf Stufe 9 ankochen“, „auf Stufe 2–3 etwa 20 min weitergaren“).
+- Plane die Mengen für 2 Personen.
+- category ist "sofort" für Kategorie 1 und "einkauf" für Kategorie 2. missing nennt die fehlenden Zutaten ohne Mengen (bei "sofort" leer). time_minutes ist die gesamte Zubereitungszeit.`;
+
+// Antwortformat des Chefkochs (Structured Outputs), gleich wie in prompts.js.
+const RECIPE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['recipes'],
+  properties: {
+    recipes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'category', 'time_minutes', 'servings', 'missing', 'rows'],
+        properties: {
+          name: { type: 'string' },
+          category: { type: 'string', enum: ['sofort', 'einkauf'] },
+          time_minutes: { type: 'integer' },
+          servings: { type: 'integer' },
+          missing: { type: 'array', items: { type: 'string' } },
+          rows: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['ingredients', 'steps', 'tools'],
+              properties: {
+                ingredients: { type: 'array', items: { type: 'string' } },
+                steps: { type: 'array', items: { type: 'string' } },
+                tools: { type: 'array', items: { type: 'string' } },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+let sdk;
+const loadSdk = () => (sdk ||= import('https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.133.0/+esm').then((m) => m.default));
+// Entfernt mitkopierte Leerzeichen, Zeilenumbrüche und unsichtbare Zeichen.
+const cleanKey = (s) => (s || '').replace(/[\s​-‍⁠﻿]/g, '');
+const getKey = () => cleanKey(store.get('apiKey', ''));
+
+// Prüft einen Schlüssel kostenlos per Token-Zählung (liefert bei falschem Schlüssel sauber 401).
+async function testKey(key) {
+  let Anthropic;
+  try { Anthropic = await loadSdk(); } catch { sdk = null; throw new Error('Keine Internetverbindung. Prüf WLAN oder mobile Daten.'); }
+  const client = new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 0 });
+  try {
+    await client.messages.countTokens({ model: getModel(), messages: [{ role: 'user', content: 'Hallo' }] });
+  } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) throw new Error('Anthropic lehnt diesen Schlüssel ab. Erstell in der Console einen neuen und kopier ihn mit dem Kopier-Symbol.');
+    if (err instanceof Anthropic.PermissionDeniedError) throw new Error('Der Schlüssel ist gültig, darf aber nichts abfragen. Prüf in der Console, ob er aktiv ist.');
+    if (err instanceof Anthropic.APIConnectionError) throw new Error('Keine Verbindung zu Anthropic. Prüf deine Internetverbindung.');
+    if (err instanceof Anthropic.APIError) throw new Error(`Anthropic antwortet gerade nicht (${err.status ?? 'Netzwerk'}). Versuch es gleich noch mal.`);
+    throw err;
+  }
+}
+
+async function claudeDirect(params) {
+  let Anthropic;
+  try { Anthropic = await loadSdk(); } catch { sdk = null; throw new Error('Keine Internetverbindung. Prüf WLAN oder mobile Daten.'); }
+  const client = new Anthropic({ apiKey: getKey(), dangerouslyAllowBrowser: true });
+  const model = getModel();
+  // Bei Opus: Lehnt ein Sicherheitsfilter ab, beantwortet die API die Anfrage mit dem empfohlenen Ersatzmodell.
+  // Haiku 5.5 hat keinen serverseitigen Fallback.
+  const fallback = model === 'claude-opus-5-5' ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {};
+  let msg;
+  try {
+    msg = await client.beta.messages.create({
+      model,
+      ...fallback,
+      thinking: { type: 'adaptive' },
+      ...params,
+    });
+  } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) throw new Error('Der API-Schlüssel ist ungültig. Prüf ihn in den Einstellungen.');
+    if (err instanceof Anthropic.PermissionDeniedError) throw new Error('Dieser API-Schlüssel darf das Modell nicht nutzen.');
+    if (err instanceof Anthropic.RateLimitError) throw new Error('Zu viele Anfragen. Warte kurz und versuch es noch mal.');
+    if (err instanceof Anthropic.BadRequestError) throw new Error('Claude konnte die Anfrage nicht verarbeiten. Versuch es mit einem anderen Foto oder anderen Zutaten.');
+    if (err instanceof Anthropic.APIConnectionError) throw new Error('Keine Verbindung zu Claude. Prüf deine Internetverbindung.');
+    if (err instanceof Anthropic.APIError) throw new Error(`Claude ist gerade nicht erreichbar (${err.status ?? 'Netzwerk'}).`);
+    throw err;
+  }
+  if (msg.stop_reason === 'refusal') throw new Error('Darauf kann Claude keine Antwort geben.');
+  return msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+}
+
+function parseIngredientArray(text) {
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) return [];
+  try {
+    const parsed = JSON.parse(match[0]);
+    return Array.isArray(parsed) ? [...new Set(parsed.filter((x) => typeof x === 'string').map((x) => x.trim()).filter(Boolean))] : [];
+  } catch { return []; }
+}
+
+// Ruft das Express-Backend auf. Ist keins erreichbar, kommt { demo: true } zurück.
+async function serverCall(url, body) {
   let res;
   try {
     res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -375,88 +564,38 @@ async function api(url, body) {
   if (!res.ok) throw new Error(data.error || `Fehler ${res.status}`);
   return data;
 }
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/* ---------- KI (Claude) mit eigenem API-Schlüssel ---------- */
-const MODEL = 'claude-sonnet-5-5';
-const getKey = () => store.get('apikey', '');
+async function analyzeImage(dataUrl) {
+  if (!dataUrl) return { demo: true };
+  if (!getKey()) return serverCall('/api/analyze-image', { image: dataUrl });
+  const [, media_type, data] = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+  const text = await claudeDirect({
+    max_tokens: 4000,
+    output_config: { effort: 'low' },
+    system: VISION_PROMPT,
+    messages: [{ role: 'user', content: [
+      { type: 'image', source: { type: 'base64', media_type, data } },
+      { type: 'text', text: 'Analysiere dieses Foto.' },
+    ] }],
+  });
+  return { ingredients: parseIngredientArray(text) };
+}
 
-async function claude(content, maxTokens, key = getKey()) {
-  let res;
+async function suggestRecipes(ingredients) {
+  if (!getKey()) return serverCall('/api/recipes', { ingredients });
+  const text = await claudeDirect({
+    max_tokens: 16000,
+    output_config: { effort: 'medium', format: { type: 'json_schema', schema: RECIPE_SCHEMA } },
+    system: CHEF_PROMPT,
+    messages: [{ role: 'user', content: `Hier ist die Liste der vorhandenen Zutaten des Nutzers:\n${ingredients.join(', ')}` }],
+  });
   try {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, messages: [{ role: 'user', content }] }),
-    });
+    return { recipes: JSON.parse(text).recipes };
   } catch {
-    throw new Error('Keine Internetverbindung. Prüf WLAN oder mobile Daten.');
+    throw new Error('Die Rezepte kamen unvollständig an. Versuch es noch mal.');
   }
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    const msg = (data && data.error && data.error.message) || '';
-    if (res.status === 401) throw new Error('Der API-Schlüssel ist ungültig. Prüf ihn in den Einstellungen.');
-    if (/credit balance/i.test(msg)) throw new Error('Dein Guthaben bei Anthropic ist aufgebraucht. Lade es in der Console auf.');
-    if (res.status === 429) throw new Error('Zu viele Anfragen. Warte kurz und versuch es noch einmal.');
-    if (res.status === 529 || res.status >= 500) throw new Error('Die KI ist gerade überlastet. Versuch es gleich noch einmal.');
-    throw new Error(msg || `Fehler ${res.status}`);
-  }
-  return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
 }
-
-async function aiRecipes(ingredients) {
-  if (!getKey()) return { demo: true };
-  const prompt = `Du bist ein kreativer, alltagstauglicher Koch und hilfst beim Resteverwerten.
-Im Kühlschrank ist: ${ingredients.join(', ')}.
-Als immer vorhanden gelten nur: Salz, Pfeffer, Öl, Wasser, Zucker.
-
-Schlag 6 Rezepte vor, in genau zwei Kategorien:
-- Kategorie 1: 3 Rezepte, die NUR mit den vorhandenen Zutaten (plus den Basics) gehen.
-- Kategorie 2: 3 Rezepte, für die man höchstens 1–3 Zutaten zukaufen muss.
-
-Halte dich EXAKT an dieses Markdown-Format, ohne Einleitung und ohne Schlusswort:
-
-# Kategorie 1: Sofort kochbar (Zero-Waste)
-
-## Rezeptname
-**Zubereitungszeit:** 20 Minuten
-
-1. Schritt mit Mengenangaben.
-2. Nächster Schritt.
-
-# Kategorie 2: Erweiterte Rezepte (Erfordert kleinen Einkauf)
-
-## Rezeptname
-**Zubereitungszeit:** 30 Minuten
-
-**🛒 FEHLENDE ZUTATEN: Zutat A, Zutat B**
-
-1. Schritt.
-
-Regeln: deutsche Sprache, einfache Gerichte für den Alltag, 3–6 Schritte mit konkreten Mengen und Zeiten, die fehlenden Zutaten nur als kommagetrennte Namen.`;
-  return { markdown: await claude(prompt, 3000) };
-}
-
-async function aiScan(dataUrl) {
-  if (!getKey() || !dataUrl) return { demo: true };
-  const [head, b64] = dataUrl.split(',');
-  const media = (head.match(/data:(.*?);/) || [])[1] || 'image/jpeg';
-  const text = await claude([
-    { type: 'image', source: { type: 'base64', media_type: media, data: b64 } },
-    { type: 'text', text: 'Welche Lebensmittel sind auf diesem Foto (z. B. Kühlschrank oder Vorratsschrank) zu erkennen? Antworte NUR mit einem JSON-Array kurzer deutscher Namen im Plural bzw. üblicher Form, z. B. ["Eier", "Milch", "Tomaten", "Gouda"]. Keine Marken, keine Getränke außer Milch, keine Gewürze. Wenn nichts erkennbar ist: [].' },
-  ], 600);
-  const m = text.match(/\[[\s\S]*\]/);
-  let list = [];
-  try { list = m ? JSON.parse(m[0]) : []; } catch { list = []; }
-  list = list.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim());
-  if (!list.length) throw new Error('Auf dem Foto habe ich keine Lebensmittel erkannt. Versuch ein helleres Foto.');
-  return { ingredients: [...new Set(list)] };
-}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* ---------- Kleine Bausteine ---------- */
 function Sheet({ onClose, children, label }) {
@@ -485,7 +624,8 @@ function RecipeTile({ kind }) {
 }
 
 /* ---------- Tab: Kühlschrank ---------- */
-function Fridge({ items, example, shopCount, hasKey, onAdd, onRemove, onClear, onScan, onCook, onShop, onSettings }) {
+function Fridge({ items, example, shopCount, live, onAdd, onRemove, onClear, onScan, onCook, onShop, onSettings, onSeason }) {
+  const seasonNow = inSeason(thisMonth()).filter((x) => x.s.length < 12);
   const [draft, setDraft] = useState('');
   const submit = (e) => { e.preventDefault(); onAdd(draft.split(',')); setDraft(''); };
   const sugg = SUGGEST.filter((s) => !items.some((i) => i.toLowerCase() === s.toLowerCase())).slice(0, 8);
@@ -497,13 +637,13 @@ function Fridge({ items, example, shopCount, hasKey, onAdd, onRemove, onClear, o
           <h1 className="font-display text-[28px] leading-tight font-extrabold mt-1">Was ist noch da?</h1>
         </div>
         <div className="shrink-0 mt-1 flex items-center gap-2">
-        <button onClick=${onSettings} className="relative w-9 h-9 rounded-full border border-line bg-surface grid place-items-center text-muted hover:text-ink transition" aria-label="Einstellungen und API-Schlüssel">
-          <${Ic.Settings} size=${18} />
-          <span className=${`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-bg ${hasKey ? 'bg-brand' : 'bg-accent'}`} aria-hidden="true"></span>
-        </button>
-        <button onClick=${onShop} className="shrink-0 flex items-center gap-1.5 rounded-full bg-ink text-bg pl-2.5 pr-3.5 py-2 text-sm font-semibold tnum hover:opacity-90 transition" aria-label="Einkaufsliste öffnen">
-          <${Ic.ShoppingCart} size=${16} strokeWidth=${2.4} />${shopCount}
-        </button>
+          <button onClick=${onSettings} className="relative w-9 h-9 rounded-full bg-surface border border-line text-muted grid place-items-center hover:text-ink transition" aria-label="Einstellungen">
+            <${Ic.Settings} size=${17} />
+            <span className=${`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-bg ${live ? 'bg-brand' : 'bg-accent'}`}></span>
+          </button>
+          <button onClick=${onShop} className="flex items-center gap-1.5 rounded-full bg-ink text-bg pl-2.5 pr-3.5 py-2 text-sm font-semibold tnum hover:opacity-90 transition" aria-label="Einkaufsliste öffnen">
+            <${Ic.ShoppingCart} size=${16} strokeWidth=${2.4} />${shopCount}
+          </button>
         </div>
       </div>
       <form onSubmit=${submit} className="mt-4 flex items-center gap-2 rounded-2xl bg-surface border border-line pl-3.5 pr-1.5 py-1.5 focus-within:border-brand transition">
@@ -525,6 +665,15 @@ function Fridge({ items, example, shopCount, hasKey, onAdd, onRemove, onClear, o
           <p className="text-sm text-muted leading-snug">Die KI erkennt, was drinliegt, und füllt die Liste für dich.</p>
         </div>
         <${Ic.ChevronRight} size=${20} className="text-brand shrink-0" />
+      </button>
+
+      <button onClick=${onSeason} className="w-full text-left flex items-center gap-3 rounded-2xl bg-surface border border-line px-4 py-3 -mt-2 mb-5 hover:border-brand/40 transition">
+        <${Ic.Leaf} size=${20} className="text-brand shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">Im ${MONTHS[thisMonth() - 1]} in Saison</p>
+          <p className="text-sm text-muted truncate">${seasonNow.slice(0, 6).map((x) => x.n).join(', ')} …</p>
+        </div>
+        <${Ic.ChevronRight} size=${18} className="text-muted shrink-0" />
       </button>
 
       <div className="flex items-baseline justify-between mb-3">
@@ -581,12 +730,31 @@ function Cooking() {
   </div>`;
 }
 
-function Recipes({ state, saved, onOpen, onCook, onFridge }) {
+function SavedButton({ n, onSaved }) {
+  return html`<button onClick=${onSaved} className="shrink-0 flex items-center gap-1.5 rounded-full bg-surface border border-line pl-2.5 pr-3 py-1.5 text-sm font-semibold text-ink tnum hover:border-accent/40 transition" aria-label="Gemerkte Rezepte öffnen">
+    <${Ic.Heart} size=${15} className="text-accent" fill=${n ? 'currentColor' : 'none'} />${n}
+  </button>`;
+}
+
+function Recipes({ state, saved, onOpen, onCook, onFridge, onSettings, onExamples, onSaved }) {
   const [filter, setFilter] = useState('alle');
   if (state.status === 'loading') return html`<${Cooking} />`;
+  if (state.status === 'nokey') {
+    return html`<div className="gutter pt-5 pb-6">
+      <div className="flex items-center justify-between gap-3"><h1 className="font-display text-[26px] font-extrabold">Rezepte</h1><${SavedButton} n=${saved.length} onSaved=${onSaved} /></div>
+      <div className="mt-6 rounded-3xl bg-surface border border-line p-6 text-center anim-rise">
+        <div className="w-14 h-14 rounded-2xl bg-accent-soft text-accent grid place-items-center mx-auto"><${Ic.KeyRound} size=${26} /></div>
+        <p className="font-display text-xl font-bold mt-3">Claude ist noch nicht verbunden</p>
+        <p className="text-sm text-muted mt-1.5">Damit Claude Rezepte zu deinen <span className="tnum">${state.basedOn.length}</span> Zutaten vorschlägt, trag einmal deinen Anthropic API-Schlüssel ein.</p>
+        <button onClick=${onSettings} className="mt-5 w-full rounded-2xl bg-brand text-onbrand py-3.5 font-semibold flex items-center justify-center gap-2 hover:brightness-110 transition"><${Ic.KeyRound} size=${18} />API-Schlüssel eintragen</button>
+        <button onClick=${onExamples} className="mt-2.5 w-full rounded-2xl border border-line py-3 font-semibold text-sm text-ink">Beispielrezepte ansehen</button>
+        <p className="text-xs text-muted mt-3">Die Beispielrezepte sind für Eier, Tomaten, Käse und Nudeln, nicht für deinen Kühlschrank.</p>
+      </div>
+    </div>`;
+  }
   if (state.status !== 'done') {
     return html`<div className="gutter pt-5 pb-6">
-      <h1 className="font-display text-[26px] font-extrabold">Rezepte</h1>
+      <div className="flex items-center justify-between gap-3"><h1 className="font-display text-[26px] font-extrabold">Rezepte</h1><${SavedButton} n=${saved.length} onSaved=${onSaved} /></div>
       <div className="mt-6 rounded-3xl border-2 border-dashed border-line p-6 text-center">
         <${Ic.ChefHat} size=${32} className="mx-auto text-brand" />
         <p className="font-semibold mt-2">Noch keine Vorschläge</p>
@@ -605,9 +773,9 @@ function Recipes({ state, saved, onOpen, onCook, onFridge }) {
     <header className="gutter pt-5 pb-4">
       <p className="text-muted text-sm flex items-center gap-1.5 flex-wrap">
         <${Ic.Sparkles} size=${14} />Aus ${state.basedOn.length} Zutaten · ${total} Ideen
-        ${state.demo && html`<span className="rounded-full bg-accent-soft text-accent text-[11px] font-semibold px-2 py-0.5">Beispieldaten</span>`}
+        ${state.demo && html`<span className="rounded-full bg-accent-soft text-accent text-[11px] font-semibold px-2 py-0.5">Beispiel, nicht deine Zutaten</span>`}
       </p>
-      <h1 className="font-display text-[28px] leading-tight font-extrabold mt-1">Heute auf dem Herd</h1>
+      <div className="flex items-center justify-between gap-3 mt-1"><h1 className="font-display text-[28px] leading-tight font-extrabold">Heute auf dem Herd</h1><${SavedButton} n=${saved.length} onSaved=${onSaved} /></div>
       <div className="flex gap-2 mt-4 overflow-x-auto no-scrollbar -mx-1 px-1">
         ${[['alle', 'Alle'], ['now', 'Sofort kochbar'], ['shop', 'Mit Einkauf']].map(([k, label]) => html`
           <button key=${k} onClick=${() => setFilter(k)} className=${`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === k ? 'bg-brand text-onbrand' : 'bg-surface text-muted border border-line hover:text-ink'}`}>${label}</button>`)}
@@ -615,7 +783,6 @@ function Recipes({ state, saved, onOpen, onCook, onFridge }) {
     </header>
 
     <div className="gutter flex flex-col gap-6">
-      ${state.fallbackHtml && html`<article className="prose max-w-none rounded-3xl bg-surface border border-line p-4" dangerouslySetInnerHTML=${{ __html: state.fallbackHtml }}></article>`}
       ${cats.map((c) => html`<section key=${c.title}>
         <div className="flex items-baseline justify-between mb-1">
           <h2 className="font-display text-lg font-bold">${c.kind === 'shop' ? 'Mit kleinem Einkauf' : 'Sofort kochbar'}</h2>
@@ -650,6 +817,32 @@ function Recipes({ state, saved, onOpen, onCook, onFridge }) {
 }
 
 /* ---------- Rezept-Detail ---------- */
+// Rezeptblatt wie im Hauswirtschaftsunterricht: Mengen/Zutaten | Zubereitung | Arbeitsgeräte.
+function RecipeTable({ r, blank }) {
+  const isMissing = (ing) => r.missing.some((m) => ing.toLowerCase().includes(m.toLowerCase()));
+  const cell = 'border border-ink/60 px-2 py-2 align-top';
+  return html`<div className="overflow-x-auto">
+    <table className="w-full border-collapse border border-ink/60 text-[13px] leading-snug [hyphens:auto]">
+      <thead>
+        <tr className="text-left bg-surface2">
+          <th className=${`${cell} w-[30%] font-display font-bold`}>Mengen/ Zutaten</th>
+          <th className=${`${cell} w-[42%] font-display font-bold`}>Zubereitung</th>
+          <th className=${`${cell} font-display font-bold`}>Arbeits­geräte</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${r.rows.map((row, i) => html`<tr key=${i}>
+          <td className=${cell}>${row.ingredients.map((x) => html`<span key=${x} className=${`block ${isMissing(x) ? 'text-accent font-semibold' : ''}`}>${x}</span>`)}</td>
+          <td className=${cell}>
+            <ul className="flex flex-col gap-1">${row.steps.map((s, j) => html`<li key=${j} className="flex gap-1.5"><span className="text-muted shrink-0">–</span><span className="min-w-0">${s}</span></li>`)}</ul>
+          </td>
+          <td className=${cell}>${!blank && row.tools.map((t) => html`<span key=${t} className="block">${t}</span>`)}</td>
+        </tr>`)}
+      </tbody>
+    </table>
+  </div>`;
+}
+
 function SubTips({ r, fridge, swapped, onSwap }) {
   const tips = tipsFor(r);
   const [open, setOpen] = useState(() => tips.filter((t) => t.missing).map((t) => t.key));
@@ -701,12 +894,14 @@ function SubTips({ r, fridge, swapped, onSwap }) {
   </section>`;
 }
 
-function Detail({ r: recipe, fridge, isSaved, shopList, onClose, onSave, onAddShop }) {
+function Detail({ r: recipe, fridge = [], isSaved, shopList, onClose, onSave, onAddShop }) {
   const [swapped, setSwapped] = useState({});
   const onSwap = (name, sub) => setSwapped((s) => { const n = { ...s }; if (sub) n[name] = sub; else delete n[name]; return n; });
   // Ersetzte Zutaten müssen nicht mehr gekauft werden.
   const r = { ...recipe, missing: recipe.missing.filter((m) => !swapped[m]) };
   const missingOpen = r.missing.filter((m) => !shopList.some((s) => s.name.toLowerCase() === m.toLowerCase()));
+  const [blank, setBlank] = useState(() => store.get('toolsBlank', false));
+  const toggleBlank = () => { store.set('toolsBlank', !blank); setBlank(!blank); };
   return html`<${Sheet} onClose=${onClose} label=${r.name}>
     <div className="flex items-center gap-2 mt-1 pr-12">
       <span className=${`rounded-full px-2.5 py-1 text-xs font-semibold ${r.kind === 'shop' ? 'bg-accent-soft text-accent' : 'bg-brand-soft text-brand'}`}>${r.kind === 'shop' ? 'Mit kleinem Einkauf' : 'Sofort kochbar'}</span>
@@ -723,10 +918,15 @@ function Detail({ r: recipe, fridge, isSaved, shopList, onClose, onSave, onAddSh
         <p className="text-xs text-muted">Zubereitung</p>
         <p className="font-semibold mt-0.5 flex items-center gap-1.5 tnum"><${Ic.Clock} size=${15} className="text-brand" />${r.time || 'k. A.'}</p>
       </div>
-      <div className="rounded-2xl bg-surface2 px-4 py-3">
-        <p className="text-xs text-muted">Arbeitsschritte</p>
-        <p className="font-semibold mt-0.5 flex items-center gap-1.5 tnum"><${Ic.ListOrdered} size=${15} className="text-brand" />${r.steps.length}</p>
-      </div>
+      ${r.servings
+        ? html`<div className="rounded-2xl bg-surface2 px-4 py-3">
+            <p className="text-xs text-muted">Menge</p>
+            <p className="font-semibold mt-0.5 flex items-center gap-1.5 tnum"><${Ic.Users} size=${15} className="text-brand" />für ${r.servings} Personen</p>
+          </div>`
+        : html`<div className="rounded-2xl bg-surface2 px-4 py-3">
+            <p className="text-xs text-muted">Arbeitsschritte</p>
+            <p className="font-semibold mt-0.5 flex items-center gap-1.5 tnum"><${Ic.ListOrdered} size=${15} className="text-brand" />${r.steps.length}</p>
+          </div>`}
     </div>
 
     ${r.missing.length > 0 && html`<div className="mt-4 rounded-3xl bg-accent-soft p-4">
@@ -743,71 +943,28 @@ function Detail({ r: recipe, fridge, isSaved, shopList, onClose, onSave, onAddSh
 
     <${SubTips} r=${recipe} fridge=${fridge} swapped=${swapped} onSwap=${onSwap} />
 
-    <h3 className="font-display text-lg font-bold mt-5 mb-2">So geht's</h3>
-    <ol className="flex flex-col gap-3">
-      ${r.steps.map((s, i) => html`<li key=${i} className="flex gap-3">
-        <span className="w-7 h-7 rounded-full bg-brand-soft text-brand grid place-items-center text-sm font-bold shrink-0 tnum">${i + 1}</span>
-        <p className="text-[15px] leading-relaxed pt-0.5 min-w-0" dangerouslySetInnerHTML=${{ __html: inline(s) }}></p>
-      </li>`)}
-    </ol>
+    ${r.rows
+      ? html`<div className="flex items-center justify-between gap-3 mt-5 mb-2">
+          <h3 className="font-display text-lg font-bold">Rezeptblatt</h3>
+          <label htmlFor="tools-blank" className="flex items-center gap-2 text-xs text-muted cursor-pointer">
+            <input id="tools-blank" type="checkbox" checked=${blank} onChange=${toggleBlank} className="w-4 h-4 accent-[rgb(var(--brand))]" />Arbeitsgeräte leer lassen
+          </label>
+        </div>
+        <${RecipeTable} r=${r} blank=${blank} />
+        ${r.missing.length > 0 && html`<p className="text-xs text-muted mt-2"><span className="text-accent font-semibold">Rot</span> = muss noch eingekauft werden.</p>`}`
+      : html`<h3 className="font-display text-lg font-bold mt-5 mb-2">So geht's</h3>
+        <ol className="flex flex-col gap-3">
+          ${r.steps.map((s, i) => html`<li key=${i} className="flex gap-3">
+            <span className="w-7 h-7 rounded-full bg-brand-soft text-brand grid place-items-center text-sm font-bold shrink-0 tnum">${i + 1}</span>
+            <p className="text-[15px] leading-relaxed pt-0.5 min-w-0" dangerouslySetInnerHTML=${{ __html: inline(s) }}></p>
+          </li>`)}
+        </ol>`}
     <p className="text-xs text-muted mt-5 flex gap-1.5"><${Ic.Info} size=${14} className="shrink-0 mt-px" />Salz, Pfeffer, Öl, Wasser und Zucker setzt das Rezept als vorhanden voraus.</p>
   <//>`;
 }
 
-/* ---------- Einstellungen: API-Schlüssel ---------- */
-function Settings({ onClose, onSaved }) {
-  const [key, setKey] = useState(getKey());
-  const [show, setShow] = useState(false);
-  const [state, setState] = useState({ busy: false, msg: '', ok: false });
-  const has = !!getKey();
-  const save = async (e) => {
-    e.preventDefault();
-    const k = key.trim();
-    if (!k.startsWith('sk-ant-')) return setState({ busy: false, ok: false, msg: 'Ein Anthropic-Schlüssel beginnt mit „sk-ant-“. Kopier ihn bitte vollständig.' });
-    setState({ busy: true, msg: '', ok: false });
-    try {
-      await claude('Antworte nur mit: OK', 5, k);
-      store.set('apikey', k);
-      setState({ busy: false, ok: true, msg: 'Schlüssel funktioniert und ist gespeichert.' });
-      onSaved('KI aktiv: Rezepte und Foto-Scan sind jetzt echt.');
-    } catch (err) {
-      setState({ busy: false, ok: false, msg: err.message });
-    }
-  };
-  const remove = () => { try { localStorage.removeItem('restekoch:apikey'); } catch {} setKey(''); setState({ busy: false, ok: false, msg: 'Schlüssel gelöscht. Die App zeigt wieder Beispielrezepte.' }); onSaved(null); };
-
-  return html`<${Sheet} onClose=${onClose} label="Einstellungen">
-    <h2 className="font-display text-[26px] font-extrabold leading-tight pr-12">KI einschalten</h2>
-    <p className="text-sm text-muted mt-1">Mit deinem eigenen Anthropic-API-Schlüssel erfindet Claude passende Rezepte zu deinen Resten und erkennt Lebensmittel auf Fotos.</p>
-
-    <div className=${`mt-4 rounded-2xl px-4 py-3 text-sm font-semibold flex items-center gap-2 ${has ? 'bg-brand-soft text-brand' : 'bg-accent-soft text-accent'}`}>
-      ${React.createElement(has ? Ic.CheckCircle2 : Ic.AlertCircle, { size: 17 })}${has ? 'KI ist aktiv' : 'Kein Schlüssel – die App zeigt Beispieldaten'}
-    </div>
-
-    <form onSubmit=${save} className="mt-4">
-      <label htmlFor="api-key" className="text-sm font-semibold">API-Schlüssel</label>
-      <div className="mt-1.5 flex items-center gap-2 rounded-2xl bg-surface2 border border-line pl-3.5 pr-1.5 py-1.5 focus-within:border-brand">
-        <input id="api-key" type=${show ? 'text' : 'password'} value=${key} onInput=${(e) => setKey(e.target.value)} placeholder="sk-ant-…" autoComplete="off" autoCapitalize="off" spellCheck="false" className="bg-transparent outline-none flex-1 min-w-0 text-[15px] py-1.5 font-mono" />
-        <button type="button" onClick=${() => setShow(!show)} className="w-9 h-9 grid place-items-center rounded-xl text-muted hover:text-ink" aria-label=${show ? 'Schlüssel verbergen' : 'Schlüssel anzeigen'}>${React.createElement(show ? Ic.EyeOff : Ic.Eye, { size: 18 })}</button>
-      </div>
-      ${state.msg && html`<p className=${`text-sm mt-2 ${state.ok ? 'text-brand' : 'text-warn'}`}>${state.msg}</p>`}
-      <button type="submit" disabled=${state.busy || !key.trim()} className="mt-3 w-full rounded-2xl bg-brand text-onbrand py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-        ${state.busy ? html`<${Ic.Loader2} size=${17} className="animate-spin" />Prüfe Schlüssel …` : html`<${Ic.KeyRound} size=${17} />Speichern und testen`}
-      </button>
-      ${has && html`<button type="button" onClick=${remove} className="mt-2 w-full rounded-2xl border border-line py-3 font-semibold text-sm text-muted hover:text-ink">Schlüssel löschen</button>`}
-    </form>
-
-    <h3 className="font-display text-lg font-bold mt-6 mb-2">So bekommst du einen Schlüssel</h3>
-    <ol className="flex flex-col gap-2 text-sm">
-      ${['Auf console.anthropic.com ein Konto anlegen.', 'Unter „Billing“ Guthaben aufladen (ab 5 $).', 'Unter „API Keys“ auf „Create Key“ tippen und den Schlüssel kopieren.', 'Hier einfügen und auf „Speichern und testen“ tippen.'].map((t, i) => html`<li key=${i} className="flex gap-2.5"><span className="w-6 h-6 rounded-full bg-brand-soft text-brand grid place-items-center text-xs font-bold shrink-0">${i + 1}</span><span className="pt-0.5">${t}</span></li>`)}
-    </ol>
-    <a href="https://console.anthropic.com/settings/keys" className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand">console.anthropic.com öffnen <${Ic.ExternalLink} size=${14} /></a>
-    <p className="text-xs text-muted mt-4 flex gap-1.5"><${Ic.Info} size=${14} className="shrink-0 mt-px" />Der Schlüssel bleibt nur auf diesem Handy gespeichert. Jede Anfrage kostet wenige Cent von deinem Guthaben. Gib die App mit eingetragenem Schlüssel nicht weiter.</p>
-  <//>`;
-}
-
 /* ---------- Foto-Scan ---------- */
-function Scanner({ onClose, onApply }) {
+function Scanner({ onClose, onApply, onSettings }) {
   const [photo, setPhoto] = useState(null);
   const [phase, setPhase] = useState('pick'); // pick | scanning | result
   const [found, setFound] = useState([]);
@@ -819,7 +976,9 @@ function Scanner({ onClose, onApply }) {
   const analyze = async (dataUrl) => {
     setPhase('scanning'); setError('');
     try {
-      const [data] = await Promise.all([aiScan(dataUrl), wait(1400)]);
+      const [data] = await Promise.all([analyzeImage(dataUrl), wait(1400)]);
+      // Ein echtes Foto ohne Schlüssel bekommt keine erfundenen Zutaten.
+      if (data.demo && dataUrl) { setPhase('nokey'); return; }
       const list = data.demo ? DEMO_SCAN : data.ingredients;
       setDemo(!!data.demo); setFound(list); setPicked(list); setPhase('result');
     } catch (err) {
@@ -858,8 +1017,16 @@ function Scanner({ onClose, onApply }) {
       <span className="absolute left-3 bottom-3 rounded-full bg-black/60 text-white text-xs px-2.5 py-1 flex items-center gap-1.5"><${Ic.Loader2} size=${12} className="animate-spin" />Erkenne Lebensmittel …</span>
     </div>`}
 
+    ${phase === 'nokey' && html`<div className="mt-5 rounded-3xl bg-accent-soft p-5 text-center anim-fade">
+      <${Ic.KeyRound} size=${26} className="mx-auto text-accent" />
+      <p className="font-semibold mt-2">Für echte Fotos braucht Claude deinen Schlüssel</p>
+      <p className="text-sm text-muted mt-1">Trag deinen Anthropic API-Schlüssel ein, dann erkennt Claude, was in deinem Kühlschrank liegt.</p>
+      <button onClick=${onSettings} className="mt-4 w-full rounded-2xl bg-brand text-onbrand py-3.5 font-semibold flex items-center justify-center gap-2"><${Ic.KeyRound} size=${18} />API-Schlüssel eintragen</button>
+      <button onClick=${() => { setPhoto(null); analyze(null); }} className="mt-2.5 w-full rounded-2xl border border-line bg-surface py-3 font-semibold text-sm text-ink">Beispiel-Scan ansehen</button>
+    </div>`}
+
     ${phase === 'result' && html`<div className="mt-5 anim-fade">
-      ${demo && html`<p className="rounded-xl bg-surface2 text-muted text-xs px-3 py-2 mb-3 flex gap-2"><${Ic.Info} size=${14} className="shrink-0 mt-px" />Beispielzutaten. Für einen echten Scan hinterlege im Kühlschrank unter dem Zahnrad deinen API-Schlüssel.</p>`}
+      ${demo && html`<p className="rounded-xl bg-surface2 text-muted text-xs px-3 py-2 mb-3 flex gap-2"><${Ic.Info} size=${14} className="shrink-0 mt-px" />Kein API-Schlüssel eingetragen. Das sind Beispielzutaten, damit du den Ablauf siehst.</p>`}
       ${found.length
         ? html`<p className="text-sm font-semibold mb-2"><span className="tnum">${found.length}</span> Lebensmittel erkannt. Tippe, um welche abzuwählen.</p>
           <ul className="flex flex-wrap gap-2">
@@ -881,6 +1048,73 @@ function Scanner({ onClose, onApply }) {
     </div>`}
 
     ${error && html`<p className="mt-4 rounded-xl bg-warn/10 text-warn text-sm px-3 py-2 flex gap-2 anim-fade" role="alert"><${Ic.AlertCircle} size=${16} className="shrink-0 mt-0.5" />${error}</p>`}
+  <//>`;
+}
+
+/* ---------- Einstellungen ---------- */
+function Settings({ onClose, onChange }) {
+  const current = getKey();
+  const [key, setKey] = useState(current);
+  const [model, setModel] = useState(getModel);
+  const pickModel = (id) => { store.set('model', id); setModel(id); };
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const save = async (e) => {
+    e.preventDefault();
+    const k = cleanKey(key);
+    if (!k.startsWith('sk-ant-')) return setError('Ein Anthropic-Schlüssel beginnt mit „sk-ant-“. Kopier ihn am besten direkt aus der Console.');
+    setChecking(true); setError('');
+    try {
+      await testKey(k);
+      store.set('apiKey', k);
+      onChange('Schlüssel funktioniert. Ab jetzt kocht Claude live.');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setChecking(false);
+    }
+  };
+  const remove = () => { store.set('apiKey', ''); onChange('Schlüssel entfernt.'); };
+  return html`<${Sheet} onClose=${onClose} label="Einstellungen">
+    <h2 className="font-display text-[26px] font-extrabold leading-tight pr-12">Einstellungen</h2>
+    <div className=${`mt-4 rounded-2xl px-4 py-3 flex items-center gap-3 ${current ? 'bg-brand-soft' : 'bg-surface2'}`}>
+      <span className=${`w-2.5 h-2.5 rounded-full shrink-0 ${current ? 'bg-brand' : 'bg-accent'}`}></span>
+      <div className="min-w-0">
+        <p className="font-semibold text-sm">${current ? 'Mit Claude verbunden' : 'Beispielmodus'}</p>
+        <p className="text-xs text-muted">${current ? `Schlüssel …${current.slice(-4)} · ${MODELS[model].name}` : 'Ohne Schlüssel kann Claude nicht zu deinen Zutaten kochen.'}</p>
+      </div>
+    </div>
+
+    <form onSubmit=${save} noValidate>
+      <label htmlFor="api-key" className="block text-sm font-semibold mt-5 mb-1.5">Anthropic API-Schlüssel</label>
+      <div className="flex items-center gap-2 rounded-2xl bg-surface2 border border-transparent focus-within:border-brand pl-4 pr-1.5 py-1.5">
+        <input id="api-key" type=${show ? 'text' : 'password'} value=${key} onInput=${(e) => { setKey(e.target.value); setError(''); }} placeholder="sk-ant-…" autoComplete="off" autoCapitalize="off" spellCheck="false" className="bg-transparent outline-none flex-1 min-w-0 text-[15px] py-1.5 font-mono placeholder:text-muted placeholder:font-sans" />
+        <button type="button" onClick=${() => setShow(!show)} className="w-9 h-9 grid place-items-center rounded-xl text-muted hover:text-ink" aria-label=${show ? 'Schlüssel verbergen' : 'Schlüssel anzeigen'}>${React.createElement(show ? Ic.EyeOff : Ic.Eye, { size: 18 })}</button>
+      </div>
+      ${error && html`<p className="mt-2 rounded-xl bg-warn/10 text-warn text-sm px-3 py-2 flex gap-2" role="alert"><${Ic.AlertCircle} size=${16} className="shrink-0 mt-0.5" />${error}</p>`}
+      <button type="submit" disabled=${!cleanKey(key) || checking} className="mt-3 w-full rounded-2xl bg-brand text-onbrand py-3.5 font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:brightness-110 transition">
+        ${checking
+          ? html`<${Ic.Loader2} size=${18} className="animate-spin" />Prüfe bei Anthropic …`
+          : html`<${Ic.KeyRound} size=${18} />${cleanKey(key) === current ? 'Schlüssel testen' : 'Prüfen und speichern'}`}
+      </button>
+    </form>
+    ${current && html`<button onClick=${remove} className="mt-2.5 w-full rounded-2xl border border-line py-3 font-semibold text-sm text-warn hover:bg-warn/10 transition">Schlüssel entfernen</button>`}
+
+    <p className="text-sm font-semibold mt-6 mb-1.5">Modell</p>
+    <div className="flex flex-col gap-2" role="radiogroup" aria-label="Modell">
+      ${Object.entries(MODELS).map(([id, m]) => html`<button type="button" key=${id} role="radio" aria-checked=${model === id} onClick=${() => pickModel(id)}
+        className=${`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition ${model === id ? 'border-brand bg-brand-soft' : 'border-line hover:border-brand/40'}`}>
+        <span className=${`w-5 h-5 rounded-full border-2 grid place-items-center shrink-0 ${model === id ? 'border-brand' : 'border-line'}`}>${model === id && html`<span className="w-2.5 h-2.5 rounded-full bg-brand"></span>`}</span>
+        <span className="min-w-0"><span className="block font-semibold text-sm">${m.name}</span><span className="block text-xs text-muted">${m.note}</span></span>
+      </button>`)}
+    </div>
+
+    <ul className="mt-5 flex flex-col gap-2.5 text-sm text-muted">
+      <li className="flex gap-2"><${Ic.ShieldCheck} size=${16} className="shrink-0 mt-0.5 text-brand" /><span>Der Schlüssel bleibt nur auf diesem Gerät gespeichert. Die App schickt ihn ausschließlich an Anthropic.</span></li>
+      <li className="flex gap-2"><${Ic.Wallet} size=${16} className="shrink-0 mt-0.5 text-brand" /><span>Jede Anfrage kostet etwas von deinem Anthropic-Guthaben. Wie viel, hängt vom Modell ab.</span></li>
+      <li className="flex gap-2"><${Ic.ExternalLink} size=${16} className="shrink-0 mt-0.5 text-brand" /><span>Einen Schlüssel erstellst du unter <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" className="text-brand font-semibold underline">console.anthropic.com</a>.</span></li>
+    </ul>
   <//>`;
 }
 
@@ -927,6 +1161,90 @@ function Shopping({ list, onToggle, onAdd, onClearDone }) {
   </div>`;
 }
 
+/* ---------- Tab: Saisonkalender ---------- */
+function MonthBar({ item, month }) {
+  return html`<div className="flex gap-[3px] shrink-0" aria-hidden="true">
+    ${MONTHS_SHORT.map((_, i) => {
+      const m = i + 1;
+      const tone = item.s.includes(m) ? 'bg-brand' : item.l && item.l.includes(m) ? 'bg-brand/30' : 'bg-line';
+      return html`<span key=${m} className=${`w-[5px] rounded-sm ${tone} ${m === month ? 'h-5 -my-0.5' : 'h-4'}`}></span>`;
+    })}
+  </div>`;
+}
+
+function Season({ shop, onAddShop }) {
+  const [month, setMonth] = useState(thisMonth);
+  const [filter, setFilter] = useState('alle');
+  const chipsRef = useRef(null);
+  useEffect(() => {
+    const el = chipsRef.current && chipsRef.current.querySelector('[aria-pressed="true"]');
+    if (el) el.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [month]);
+
+  const prev = month === 1 ? 12 : month - 1, next = month === 12 ? 1 : month + 1;
+  const fresh = inSeason(month).filter((x) => !x.s.includes(prev));
+  const ending = inSeason(month).filter((x) => !x.s.includes(next));
+  const list = SEASON
+    .filter((x) => (filter === 'alle' || x.c === filter) && (x.s.includes(month) || (x.l && x.l.includes(month))))
+    .sort((a, b) => (b.s.includes(month) - a.s.includes(month)) || a.n.localeCompare(b.n, 'de'));
+  const range = (x) => (x.s.length === 12 ? 'ganzjährig' : x.s.length === 1 ? `nur im ${MONTHS[x.s[0] - 1]}` : `${MONTHS_SHORT[x.s[0] - 1]} – ${MONTHS_SHORT[x.s[x.s.length - 1] - 1]}`);
+  const onList = (n) => shop.some((s) => s.name.toLowerCase() === n.toLowerCase() && !s.done);
+
+  return html`<div className="pb-6">
+    <header className="gutter pt-5 pb-3">
+      <p className="text-muted text-sm flex items-center gap-1"><${Ic.MapPin} size=${14} />Regional aus Deutschland</p>
+      <h1 className="font-display text-[28px] leading-tight font-extrabold mt-1">Saisonkalender</h1>
+      <div ref=${chipsRef} className="flex gap-2 mt-4 overflow-x-auto no-scrollbar -mx-1 px-1" role="group" aria-label="Monat">
+        ${MONTHS_SHORT.map((label, i) => html`<button key=${label} onClick=${() => setMonth(i + 1)} aria-pressed=${month === i + 1}
+          className=${`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${month === i + 1 ? 'bg-brand text-onbrand' : 'bg-surface text-muted border border-line hover:text-ink'} ${i + 1 === thisMonth() && month !== i + 1 ? 'border-brand/50 text-brand' : ''}`}>${label}</button>`)}
+      </div>
+    </header>
+
+    <div className="gutter flex flex-col gap-5">
+      ${(fresh.length > 0 || ending.length > 0) && html`<div className="grid grid-cols-2 gap-2.5">
+        <div className="rounded-2xl bg-brand-soft p-3.5 min-w-0">
+          <p className="text-[11px] uppercase tracking-wider font-bold text-brand flex items-center gap-1"><${Ic.Sprout} size=${13} />Neu im ${MONTHS_SHORT[month - 1]}</p>
+          <p className="text-sm font-semibold mt-1.5 leading-snug">${fresh.length ? fresh.map((x) => x.n).join(', ') : 'Nichts Neues'}</p>
+        </div>
+        <div className="rounded-2xl bg-accent-soft p-3.5 min-w-0">
+          <p className="text-[11px] uppercase tracking-wider font-bold text-accent flex items-center gap-1"><${Ic.Hourglass} size=${13} />Letzte Chance</p>
+          <p className="text-sm font-semibold mt-1.5 leading-snug">${ending.length ? ending.map((x) => x.n).join(', ') : 'Nichts endet'}</p>
+        </div>
+      </div>`}
+
+      <div>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+          ${[['alle', 'Alles'], ['g', 'Gemüse'], ['o', 'Obst'], ['k', 'Kräuter']].map(([k, label]) => html`
+            <button key=${k} onClick=${() => setFilter(k)} className=${`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === k ? 'bg-ink text-bg' : 'bg-surface text-muted border border-line hover:text-ink'}`}>${label}</button>`)}
+        </div>
+        <div className="flex items-center gap-4 text-xs text-muted mt-3">
+          <span className="flex items-center gap-1.5"><span className="w-[5px] h-3 rounded-sm bg-brand"></span>Erntesaison</span>
+          <span className="flex items-center gap-1.5"><span className="w-[5px] h-3 rounded-sm bg-brand/30"></span>aus dem Lager</span>
+          <span className="ml-auto tnum">${list.length} Sorten</span>
+        </div>
+      </div>
+
+      ${list.length
+        ? html`<ul className="rounded-3xl bg-surface border border-line divide-y divide-line">
+            ${list.map((x) => { const fresh = x.s.includes(month); const added = onList(x.n); return html`<li key=${x.n} className="flex items-center gap-3 pl-4 pr-2 py-2.5">
+              <span className="text-[22px] leading-none w-7 text-center" aria-hidden="true">${x.e}</span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-[15px] truncate">${x.n}</p>
+                <p className="text-xs text-muted">${fresh ? range(x) : 'aus dem Lager'}</p>
+              </div>
+              <${MonthBar} item=${x} month=${month} />
+              <button onClick=${() => onAddShop(x.n)} disabled=${added} className=${`w-9 h-9 rounded-full grid place-items-center shrink-0 transition ${added ? 'text-brand' : 'text-muted hover:text-ink hover:bg-surface2'}`} aria-label=${added ? `${x.n} steht auf der Einkaufsliste` : `${x.n} auf die Einkaufsliste`}>
+                ${React.createElement(added ? Ic.Check : Ic.Plus, { size: 18, strokeWidth: 2.4 })}
+              </button>
+            </li>`; })}
+          </ul>`
+        : html`<p className="text-sm text-muted">In dieser Kategorie ist im ${MONTHS[month - 1]} nichts regional verfügbar.</p>`}
+
+      <p className="text-xs text-muted flex gap-1.5"><${Ic.Info} size=${14} className="shrink-0 mt-px" />Richtwerte für Freiland-Ware. Je nach Region und Wetter verschiebt sich die Saison um ein paar Wochen.</p>
+    </div>
+  </div>`;
+}
+
 /* ---------- Tab: Favoriten ---------- */
 function Saved({ saved, onOpen, onRecipes }) {
   return html`<div className="gutter pt-5 pb-6">
@@ -963,7 +1281,7 @@ function App() {
   const [selected, setSelected] = useState(null);
   const [scanOpen, setScanOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [hasKey, setHasKey] = useState(() => !!getKey());
+  const [live, setLive] = useState(() => !!getKey());
   const [toast, setToast] = useState(null);
   const scroller = useRef(null);
 
@@ -988,19 +1306,18 @@ function App() {
     const basedOn = [...items];
     setTab('recipes'); setSelected(null); setRecipes({ status: 'loading' });
     try {
-      const [data] = await Promise.all([aiRecipes(basedOn), wait(1200)]);
-      const md = data.demo ? DEMO_MD : data.markdown;
-      const cats = parseRecipes(md);
-      setRecipes({
-        status: 'done', demo: !!data.demo, basedOn, cats,
-        fallbackHtml: cats.length ? null : DOMPurify.sanitize(marked.parse(md)),
-      });
-      if (data.demo) showToast('Kein API-Schlüssel hinterlegt: Du siehst Beispielrezepte. Tippe im Kühlschrank auf das Zahnrad.', 'Info');
+      const [data] = await Promise.all([suggestRecipes(basedOn), wait(1200)]);
+      // Ohne Schlüssel und Server keine Rezepte vortäuschen, die nicht zu den Zutaten passen.
+      if (data.demo) { setRecipes({ status: 'nokey', basedOn }); return; }
+      const cats = groupRecipes(data.recipes || []);
+      if (!cats.length) throw new Error('Der Chefkoch hat keine Rezepte geliefert. Versuch es noch mal.');
+      setRecipes({ status: 'done', demo: false, basedOn, cats });
     } catch (err) {
       setRecipes({ status: 'idle' });
       showToast(err.message, 'AlertCircle');
     }
   };
+  const showExamples = () => setRecipes({ status: 'done', demo: true, basedOn: EXAMPLE_FRIDGE, cats: groupRecipes(DEMO_RECIPES) });
 
   const toggleSave = (r) => setSaved((s) => {
     const has = s.some((x) => x.id === r.id);
@@ -1013,6 +1330,11 @@ function App() {
     showToast(`${fresh.length} ${fresh.length === 1 ? 'Zutat' : 'Zutaten'} auf der Einkaufsliste.`, 'ShoppingCart');
   };
   const toggleShop = (name) => setShop((s) => s.map((x) => (x.name === name ? { ...x, done: !x.done } : x)));
+  const addSeasonal = (name) => {
+    if (shop.some((s) => s.name.toLowerCase() === name.toLowerCase() && !s.done)) return;
+    setShop((s) => [...s.filter((x) => x.name.toLowerCase() !== name.toLowerCase()), { name, from: 'Saisonkalender', done: false }]);
+    showToast(`${name} steht auf der Einkaufsliste.`, 'ShoppingCart');
+  };
   const addOwn = (name) => { const n = name.trim(); if (n && !shop.some((s) => s.name.toLowerCase() === n.toLowerCase())) setShop((s) => [...s, { name: n, from: '', done: false }]); };
   const stockUp = () => {
     const bought = shop.filter((x) => x.done).map((x) => x.name);
@@ -1026,7 +1348,7 @@ function App() {
   };
 
   const openShop = shop.filter((x) => !x.done).length;
-  const nav = [['fridge', 'Kühlschrank', 'Refrigerator'], ['recipes', 'Rezepte', 'ChefHat'], ['scan'], ['shop', 'Einkauf', 'ShoppingCart'], ['saved', 'Gemerkt', 'Heart']];
+  const nav = [['fridge', 'Kühlschrank', 'Refrigerator'], ['recipes', 'Rezepte', 'ChefHat'], ['scan'], ['season', 'Saison', 'Leaf'], ['shop', 'Einkauf', 'ShoppingCart']];
 
   return html`<div className="h-full flex items-center justify-center gap-14 sm:py-6">
     <aside className="hidden lg:block w-[300px] shrink-0">
@@ -1047,8 +1369,9 @@ function App() {
       </div>
 
       <main ref=${scroller} className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
-        ${tab === 'fridge' && html`<${Fridge} items=${items} example=${example} shopCount=${openShop} hasKey=${hasKey} onSettings=${() => setSettingsOpen(true)} onAdd=${addItems} onRemove=${removeItem} onClear=${() => { setExample(false); setItems([]); }} onScan=${() => setScanOpen(true)} onCook=${cook} onShop=${() => go('shop')} />`}
-        ${tab === 'recipes' && html`<${Recipes} state=${recipes} saved=${saved} onOpen=${setSelected} onCook=${cook} onFridge=${() => go('fridge')} />`}
+        ${tab === 'fridge' && html`<${Fridge} items=${items} example=${example} shopCount=${openShop} onAdd=${addItems} onRemove=${removeItem} onClear=${() => { setExample(false); setItems([]); }} onScan=${() => setScanOpen(true)} onCook=${cook} onShop=${() => go('shop')} live=${live} onSettings=${() => setSettingsOpen(true)} onSeason=${() => go('season')} />`}
+        ${tab === 'recipes' && html`<${Recipes} state=${recipes} saved=${saved} onOpen=${setSelected} onCook=${cook} onFridge=${() => go('fridge')} onSettings=${() => setSettingsOpen(true)} onExamples=${showExamples} onSaved=${() => go('saved')} />`}
+        ${tab === 'season' && html`<${Season} shop=${shop} onAddShop=${addSeasonal} />`}
         ${tab === 'shop' && html`<${Shopping} list=${shop} onToggle=${toggleShop} onAdd=${addOwn} onClearDone=${stockUp} />`}
         ${tab === 'saved' && html`<${Saved} saved=${saved} onOpen=${setSelected} onRecipes=${() => go('recipes')} />`}
       </main>
@@ -1068,9 +1391,9 @@ function App() {
         </ul>
       </nav>
 
-      ${selected && html`<${Detail} key=${selected.id} r=${selected} fridge=${[...items, ...BASICS]} isSaved=${saved.some((s) => s.id === selected.id)} shopList=${shop} onClose=${() => setSelected(null)} onSave=${toggleSave} onAddShop=${addShop} />`}
-      ${scanOpen && html`<${Scanner} onClose=${() => setScanOpen(false)} onApply=${applyScan} />`}
-      ${settingsOpen && html`<${Settings} onClose=${() => setSettingsOpen(false)} onSaved=${(msg) => { setHasKey(!!getKey()); if (msg) showToast(msg, 'Sparkles'); }} />`}
+      ${selected && html`<${Detail} key=${selected.id} fridge=${[...items, ...BASICS]} r=${selected} isSaved=${saved.some((s) => s.id === selected.id)} shopList=${shop} onClose=${() => setSelected(null)} onSave=${toggleSave} onAddShop=${addShop} />`}
+      ${scanOpen && html`<${Scanner} onClose=${() => setScanOpen(false)} onApply=${applyScan} onSettings=${() => { setScanOpen(false); setSettingsOpen(true); }} />`}
+      ${settingsOpen && html`<${Settings} onClose=${() => setSettingsOpen(false)} onChange=${(msg) => { setLive(!!getKey()); setSettingsOpen(false); showToast(msg, 'KeyRound'); }} />`}
 
       ${toast && html`<div key=${toast.id} className="toast absolute left-1/2 top-12 -translate-x-1/2 z-[60] w-[calc(100%-32px)] max-w-[360px] rounded-2xl bg-ink text-bg px-4 py-3 shadow-2xl flex items-center gap-2.5 text-sm font-medium" role="status">
         ${React.createElement(Ic[toast.icon], { size: 18, className: 'shrink-0' })}${toast.msg}
@@ -1081,5 +1404,5 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
 </script>
-
-</body></html>
+</body>
+</html>
