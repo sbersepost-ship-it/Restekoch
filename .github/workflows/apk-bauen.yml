@@ -1,0 +1,59 @@
+name: APK bauen
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Projekt holen
+        uses: actions/checkout@v4
+
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Bibliotheken für den Offline-Betrieb laden
+        run: |
+          mkdir -p app/src/main/assets/lib
+          cd app/src/main/assets/lib
+          dl() { curl -fsSL --retry 3 -o "$1" "$2"; }
+          dl tailwind.js     https://cdn.tailwindcss.com/3.4.17
+          dl react.js        https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js
+          dl react-dom.js    https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js
+          dl htm.js          https://unpkg.com/htm@3.1.1/dist/htm.umd.js
+          dl marked.js       https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js
+          dl purify.js       https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js
+          dl lucide-react.js https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.min.js
+          ls -la
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: APK erzeugen
+        run: |
+          gradle assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk Restekoch.apk
+
+      - name: APK als Download bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Restekoch-APK
+          path: Restekoch.apk
+
+      - name: APK unter "Releases" veröffentlichen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Restekoch ${{ github.run_number }}
+          body: Zum Installieren Restekoch.apk auf dem Android-Handy herunterladen und öffnen.
+          files: Restekoch.apk
