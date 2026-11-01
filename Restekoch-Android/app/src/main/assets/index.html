@@ -1,0 +1,943 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Restekoch AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<script src="lib/tailwind.js"></script>
+<script>
+  const tok = (v) => `rgb(var(--${v}) / <alpha-value>)`;
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          page: tok('page'), bg: tok('bg'), surface: tok('surface'), surface2: tok('surface2'),
+          ink: tok('ink'), muted: tok('muted'), line: tok('line'),
+          brand: tok('brand'), 'brand-soft': tok('brand-soft'), onbrand: tok('onbrand'),
+          accent: tok('accent'), 'accent-soft': tok('accent-soft'), warn: tok('warn'),
+        },
+        fontFamily: {
+          display: ['"Bricolage Grotesque"', 'ui-rounded', 'system-ui', 'sans-serif'],
+          sans: ['Figtree', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  /* Layout: phone-shaped app shell centred on desktop, full-bleed on phones; tabs > bottom sheets > toast.
+     Palette: basil green for "kochen", tomato for "fehlt / einkaufen", neutrals with a slight herb tint. */
+  :root {
+    --page: 228 236 226; --bg: 247 249 244; --surface: 255 255 255; --surface2: 237 242 233;
+    --ink: 26 36 28; --muted: 98 112 100; --line: 222 230 218;
+    --brand: 30 120 72; --brand-soft: 220 240 225; --onbrand: 255 255 255;
+    --accent: 214 72 46; --accent-soft: 253 228 220; --warn: 196 58 40;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: 9 14 10; --bg: 16 22 17; --surface: 26 34 28; --surface2: 35 46 37;
+      --ink: 234 241 232; --muted: 156 172 158; --line: 48 62 50;
+      --brand: 98 200 138; --brand-soft: 28 64 42; --onbrand: 12 22 15;
+      --accent: 250 128 100; --accent-soft: 78 36 28; --warn: 250 120 100;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --page: 9 14 10; --bg: 16 22 17; --surface: 26 34 28; --surface2: 35 46 37;
+    --ink: 234 241 232; --muted: 156 172 158; --line: 48 62 50;
+    --brand: 98 200 138; --brand-soft: 28 64 42; --onbrand: 12 22 15;
+    --accent: 250 128 100; --accent-soft: 78 36 28; --warn: 250 120 100;
+    color-scheme: dark;
+  }
+  html, body, #root { height: 100%; }
+  body { margin: 0; background: rgb(var(--page)); color: rgb(var(--ink)); font-family: Figtree, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { text-wrap: balance; }
+  .gutter { padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { scrollbar-width: none; }
+  *:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+  @keyframes up { from { transform: translateY(100%); } }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes toast { from { opacity: 0; transform: translate(-50%, -14px); } }
+  @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+  @keyframes scan { 0% { top: 4%; } 50% { top: 92%; } 100% { top: 4%; } }
+  @keyframes wobble { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+  @keyframes steam { 0% { transform: translateY(0) scaleX(1); opacity: 0; } 30% { opacity: .7; } 100% { transform: translateY(-18px) scaleX(1.4); opacity: 0; } }
+  .anim-rise { animation: rise .45s cubic-bezier(.2, .8, .3, 1) both; }
+  .anim-up { animation: up .38s cubic-bezier(.2, .9, .3, 1); }
+  .anim-fade { animation: fade .25s ease-out; }
+  .toast { animation: toast .3s cubic-bezier(.2, .9, .3, 1); }
+  .skel { background: linear-gradient(90deg, rgb(var(--surface2)) 0%, rgb(var(--line)) 50%, rgb(var(--surface2)) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+  .scanline { position: absolute; left: 0; right: 0; height: 3px; background: rgb(var(--brand)); box-shadow: 0 0 18px 4px rgb(var(--brand) / .55); animation: scan 2.2s ease-in-out infinite; }
+  .wobble { animation: wobble 1.2s ease-in-out infinite; transform-origin: 50% 80%; }
+  .steam { animation: steam 1.8s ease-out infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  }
+</style>
+<div id="root"></div>
+
+<script src="lib/react.js"></script>
+<script src="lib/react-dom.js"></script>
+<script src="lib/htm.js"></script>
+<script src="lib/marked.js"></script>
+<script src="lib/purify.js"></script>
+<script>window.react = window.React; /* lucide-react's UMD build looks for a lowercase global */</script>
+<script src="lib/lucide-react.js"></script>
+<script>
+const { useState, useEffect, useRef } = React;
+const html = htm.bind(React.createElement);
+const Ic = new Proxy({}, { get: (_, k) => (window.LucideReact && window.LucideReact[k]) || (() => null) });
+
+/* ---------- Daten ---------- */
+const BASICS = ['Salz', 'Pfeffer', 'Öl', 'Wasser', 'Zucker'];
+const SUGGEST = ['Eier', 'Milch', 'Tomaten', 'Käse', 'Nudeln', 'Reis', 'Zwiebeln', 'Kartoffeln', 'Paprika', 'Joghurt', 'Butter', 'Hähnchen', 'Zucchini', 'Spinat'];
+const EXAMPLE_FRIDGE = ['Eier', 'Tomaten', 'Käse', 'Nudeln'];
+const DEMO_SCAN = ['Eier', 'Tomaten', 'Gouda', 'Milch', 'Zucchini', 'Naturjoghurt', 'Paprika'];
+
+const EMOJI = [
+  [/^eier?$|eier\b/, '🥚'], [/tomate/, '🍅'], [/käse|gouda|parmesan|feta|mozzarella|emmentaler|cheddar/, '🧀'],
+  [/nudel|pasta|spaghetti|penne|fusilli/, '🍝'], [/milch|sahne/, '🥛'], [/joghurt|quark|skyr/, '🥣'],
+  [/zucchini|gurke/, '🥒'], [/paprika/, '🫑'], [/karotte|möhre/, '🥕'], [/kartoffel/, '🥔'], [/zwiebel/, '🧅'],
+  [/knoblauch/, '🧄'], [/brokkoli|kohl/, '🥦'], [/salat|spinat/, '🥬'], [/pilz|champignon/, '🍄'], [/apfel/, '🍎'],
+  [/banane/, '🍌'], [/zitrone|limette/, '🍋'], [/reis/, '🍚'], [/brot|toast|brötchen/, '🍞'], [/butter/, '🧈'],
+  [/hähnchen|huhn|pute/, '🍗'], [/speck|bacon|schinken/, '🥓'], [/hack|rind|steak|fleisch|schwein/, '🥩'],
+  [/wurst|würstchen/, '🌭'], [/fisch|lachs|thunfisch/, '🐟'], [/garnele|shrimp/, '🦐'], [/avocado/, '🥑'],
+  [/mais/, '🌽'], [/chili/, '🌶️'], [/bohne|linse|kichererbse/, '🫘'], [/ketchup|sauce|soße|pesto|senf/, '🥫'],
+  [/mehl/, '🌾'], [/honig/, '🍯'], [/kräuter|basilikum|petersilie|schnittlauch/, '🌿'],
+];
+const emojiFor = (name) => { const n = name.toLowerCase(); const hit = EMOJI.find(([re]) => re.test(n)); return hit ? hit[1] : '🍽️'; };
+
+/* ---------- Ersatz-Tipps ----------
+   name: Anzeigename, re: erkennt die Zutat in Rezepttext / fehlenden Zutaten.
+   subs: Alternativen. needs: Zutaten, die man dafür braucht (zum Abgleich mit dem Kühlschrank; Basics zählen als vorhanden). */
+const SUBS = [
+  { name: 'Saure Sahne / Schmand', re: /saure sahne|schmand|crème fraîche|creme fraiche/, subs: [
+    { with: 'Joghurt', how: 'Im Verhältnis 1:1 nehmen, griechischer Joghurt ist am ähnlichsten.', needs: ['joghurt'] },
+    { with: 'Quark + Milch', how: 'Quark mit einem Schuss Milch cremig rühren.', needs: ['quark', 'milch'] } ] },
+  { name: 'Sahne', re: /(?<!saure\s)sahne/, subs: [
+    { with: 'Milch + Butter', how: '200 ml Milch mit 2 EL geschmolzener Butter verrühren.', needs: ['milch', 'butter'] },
+    { with: 'Frischkäse + Milch', how: '2 EL Frischkäse mit etwas Milch glatt rühren. Wird schön cremig.', needs: ['frischkäse', 'milch'] },
+    { with: 'Joghurt', how: 'Erst zum Schluss unterrühren und nicht mehr kochen, sonst flockt er aus.', needs: ['joghurt'] } ] },
+  { name: 'Milch', re: /\bmilch\b/, subs: [
+    { with: 'Joghurt + Wasser', how: 'Halb Joghurt, halb Wasser. Gut für Teig und Pfannkuchen.', needs: ['joghurt'] },
+    { with: 'Haferdrink', how: 'Im Verhältnis 1:1, auch für Saucen geeignet.', needs: ['hafer'] },
+    { with: 'Wasser + Butter', how: 'Für Kartoffelbrei oder Teig: Wasser mit einem Stück Butter.', needs: ['butter'] } ] },
+  { name: 'Butter', re: /\bbutter\b/, subs: [
+    { with: 'Öl', how: 'Etwa ¾ der Buttermenge nehmen. Zum Braten 1:1.', needs: ['öl'] },
+    { with: 'Margarine', how: 'Im Verhältnis 1:1, auch zum Backen.', needs: ['margarine'] } ] },
+  { name: 'Eigelb', re: /eigelb/, subs: [
+    { with: 'Ganze Eier', how: 'Statt 3 Eigelb 2 ganze Eier. Etwas weniger cremig, klappt aber gut.', needs: ['ei'] } ] },
+  { name: 'Ei', re: /\beier?\b|\beiern\b/, subs: [
+    { with: 'Speisestärke + Wasser', how: 'Zum Binden: 1 EL Stärke mit 3 EL Wasser verrühren = 1 Ei.', needs: ['stärke'] },
+    { with: 'Joghurt', how: 'In Teig: 3 EL Joghurt ersetzen 1 Ei.', needs: ['joghurt'] },
+    { with: 'Banane', how: 'Für süße Teige: ½ zerdrückte Banane pro Ei.', needs: ['banane'] } ] },
+  { name: 'Speck', re: /speck|bacon/, subs: [
+    { with: 'Schinken', how: 'Gewürfelt kurz anbraten, er braucht weniger Zeit.', needs: ['schinken'] },
+    { with: 'Salami', how: 'In Streifen schneiden und knusprig braten.', needs: ['salami'] },
+    { with: 'Pilze + Paprikapulver', how: 'Vegetarisch: Pilze kräftig anbraten, mit geräuchertem Paprikapulver würzen.', needs: ['pilz'] } ] },
+  { name: 'Knoblauch', re: /knoblauch/, subs: [
+    { with: 'Knoblauchpulver', how: '¼ TL Pulver ersetzt eine Zehe.', needs: ['knoblauchpulver'] },
+    { with: 'Mehr Zwiebel', how: 'Eine halbe Zwiebel extra mitbraten.', needs: ['zwiebel'] } ] },
+  { name: 'Zwiebel', re: /zwiebel(?!pulver)/, subs: [
+    { with: 'Lauch', how: 'Ein Stück Lauch in Ringe schneiden und genauso anbraten.', needs: ['lauch'] },
+    { with: 'Frühlingszwiebeln', how: '2–3 Stück pro Zwiebel, kürzer braten.', needs: ['frühlingszwiebel'] },
+    { with: 'Zwiebelpulver', how: '1 TL ersetzt eine Zwiebel.', needs: ['zwiebelpulver'] } ] },
+  { name: 'Basilikum', re: /basilikum/, subs: [
+    { with: 'Getrocknetes Basilikum', how: '1 TL statt einer Handvoll frischer Blätter.', needs: [] },
+    { with: 'Petersilie', how: 'Anderer Geschmack, aber genauso frisch.', needs: ['petersilie'] },
+    { with: 'Rucola oder Spinat', how: 'Ein paar Blätter geben Farbe und Frische.', needs: ['rucola', 'spinat'], any: true } ] },
+  { name: 'Petersilie', re: /petersilie/, subs: [
+    { with: 'Schnittlauch', how: 'Fein schneiden und erst zum Schluss dazugeben.', needs: ['schnittlauch'] },
+    { with: 'Getrocknete Kräuter', how: '1 TL statt einer Handvoll.', needs: [] } ] },
+  { name: 'Balsamico', re: /balsamico/, subs: [
+    { with: 'Anderer Essig + Zucker', how: 'Weißwein- oder Apfelessig mit einer Prise Zucker.', needs: ['essig'] },
+    { with: 'Zitronensaft', how: 'Etwas weniger nehmen, er ist saurer.', needs: ['zitrone'] } ] },
+  { name: 'Zitronensaft', re: /zitrone/, subs: [
+    { with: 'Essig', how: 'Halbe Menge, dazu eine Prise Zucker.', needs: ['essig'] },
+    { with: 'Limette', how: 'Im Verhältnis 1:1.', needs: ['limette'] } ] },
+  { name: 'Parmesan', re: /parmesan/, subs: [
+    { with: 'Anderer Hartkäse', how: 'Bergkäse, Grana Padano oder alter Gouda, fein gerieben.', needs: ['käse', 'gouda'], any: true } ] },
+  { name: 'Mozzarella', re: /mozzarella/, subs: [
+    { with: 'Gouda', how: 'Zum Überbacken 1:1, schmeckt etwas kräftiger.', needs: ['gouda', 'käse'], any: true },
+    { with: 'Feta', how: 'Für Salate, in Würfel zerbröseln.', needs: ['feta'] } ] },
+  { name: 'Feta', re: /feta/, subs: [
+    { with: 'Hirtenkäse', how: 'Im Verhältnis 1:1.', needs: ['hirtenkäse'] },
+    { with: 'Mozzarella + Salz', how: 'Würfeln und etwas salzen.', needs: ['mozzarella'] } ] },
+  { name: 'Käse', re: /käse/, subs: [
+    { with: 'Jeder andere Schnittkäse', how: 'Gouda, Emmentaler oder Cheddar gehen fast immer.', needs: ['gouda', 'emmentaler', 'cheddar'], any: true },
+    { with: 'Frischkäse', how: 'Für Saucen: unterrühren statt reiben.', needs: ['frischkäse'] } ] },
+  { name: 'Tomaten', re: /tomate(?!nmark)/, subs: [
+    { with: 'Dosentomaten', how: 'Eine Dose ersetzt etwa 4–5 frische Tomaten.', needs: ['dose', 'gehackte tomaten'], any: true },
+    { with: 'Passierte Tomaten', how: 'Für Saucen ideal, kürzer einkochen.', needs: ['passiert'] },
+    { with: 'Tomatenmark + Wasser', how: '2 EL Tomatenmark mit 150 ml Wasser verrühren.', needs: ['tomatenmark'] } ] },
+  { name: 'Tomatenmark', re: /tomatenmark/, subs: [
+    { with: 'Ketchup', how: 'Doppelte Menge, dafür den Zucker im Rezept weglassen.', needs: ['ketchup'] },
+    { with: 'Passierte Tomaten', how: 'Einige Minuten stark einkochen lassen.', needs: ['passiert'] } ] },
+  { name: 'Brühe', re: /brühe|fond/, subs: [
+    { with: 'Wasser + Sojasauce', how: '500 ml Wasser mit 1–2 EL Sojasauce und etwas Salz.', needs: ['soja'] },
+    { with: 'Wasser + Gewürze', how: 'Wasser, Salz, Lorbeer und etwas Zwiebel mitkochen.', needs: ['salz'] } ] },
+  { name: 'Weißwein', re: /wein/, subs: [
+    { with: 'Brühe + Essig', how: 'Brühe mit einem Spritzer Essig oder Zitronensaft.', needs: ['brühe'] },
+    { with: 'Apfelsaft', how: 'Mit etwas Wasser verdünnen, für süßliche Saucen.', needs: ['apfelsaft'] } ] },
+  { name: 'Paniermehl', re: /paniermehl|semmelbrösel/, subs: [
+    { with: 'Altes Brot', how: 'Trocknen lassen und fein reiben oder zerbröseln.', needs: ['brot', 'brötchen', 'toast'], any: true },
+    { with: 'Cornflakes', how: 'In einer Tüte fein zerdrücken. Gibt extra Crunch.', needs: ['cornflakes'] } ] },
+  { name: 'Speisestärke', re: /stärke/, subs: [
+    { with: 'Mehl', how: 'Doppelte Menge nehmen und etwas länger köcheln lassen.', needs: ['mehl'] } ] },
+  { name: 'Reis', re: /\breis\b/, subs: [
+    { with: 'Nudeln', how: 'Kleine Nudeln wie Orzo oder Hörnchen passen am besten.', needs: ['nudel'] },
+    { with: 'Couscous oder Bulgur', how: 'Mit heißem Wasser übergießen, 5 Minuten quellen lassen.', needs: ['couscous', 'bulgur'], any: true } ] },
+  { name: 'Nudeln', re: /nudel|spaghetti|penne/, subs: [
+    { with: 'Reis', how: 'Zur Sauce passt auch Reis.', needs: ['reis'] },
+    { with: 'Kartoffeln', how: 'Als Gnocchi-Ersatz: kochen, würfeln und anbraten.', needs: ['kartoffel'] } ] },
+  { name: 'Hackfleisch', re: /hackfleisch|\bhack\b/, subs: [
+    { with: 'Linsen', how: 'Rote Linsen 10 Minuten in der Sauce mitkochen.', needs: ['linse'] },
+    { with: 'Kidneybohnen', how: 'Abtropfen lassen und grob zerdrücken.', needs: ['bohne'] } ] },
+  { name: 'Hähnchen', re: /hähnchen|huhn/, subs: [
+    { with: 'Pute', how: 'Gleiche Garzeit.', needs: ['pute'] },
+    { with: 'Kichererbsen', how: 'Vegetarisch: abgetropft knusprig anbraten.', needs: ['kichererbse'] },
+    { with: 'Tofu', how: 'Gut ausdrücken, würfeln und scharf anbraten.', needs: ['tofu'] } ] },
+  { name: 'Kokosmilch', re: /kokosmilch/, subs: [
+    { with: 'Sahne', how: 'Im Verhältnis 1:1.', needs: ['sahne'] },
+    { with: 'Joghurt', how: 'Zum Schluss unterrühren, nicht mehr kochen.', needs: ['joghurt'] } ] },
+  { name: 'Sojasauce', re: /soja/, subs: [
+    { with: 'Salz + Brühe', how: 'Etwas kräftige Brühe und eine Prise Salz.', needs: ['brühe'] } ] },
+  { name: 'Honig', re: /honig/, subs: [
+    { with: 'Zucker + Wasser', how: '1 EL Zucker in 1 TL warmem Wasser auflösen.', needs: ['zucker'] },
+    { with: 'Ahornsirup', how: 'Im Verhältnis 1:1.', needs: ['ahorn'] } ] },
+  { name: 'Paprika', re: /paprika(?!pulver)/, subs: [
+    { with: 'Zucchini', how: 'Gleich schneiden, etwas kürzer garen.', needs: ['zucchini'] },
+    { with: 'Möhren', how: 'Dünn schneiden, sie brauchen länger.', needs: ['möhre', 'karotte'], any: true } ] },
+  { name: 'Zucchini', re: /zucchini/, subs: [
+    { with: 'Paprika', how: 'Im Verhältnis 1:1.', needs: ['paprika'] },
+    { with: 'Aubergine', how: 'Würfeln und etwas länger braten.', needs: ['aubergine'] } ] },
+  { name: 'Spinat', re: /spinat/, subs: [
+    { with: 'TK-Spinat', how: 'Auftauen und gut ausdrücken.', needs: ['tk'] },
+    { with: 'Mangold oder Rucola', how: 'Mangold kurz dünsten, Rucola erst zum Schluss unterheben.', needs: ['mangold', 'rucola'], any: true } ] },
+];
+
+const findSub = (text) => { const t = text.toLowerCase(); return SUBS.find((s) => s.re.test(t)); };
+// Hat der Kühlschrank alles, was der Ersatz braucht?
+const subReady = (sub, fridge) => {
+  if (!sub.needs.length) return false; // z. B. getrocknete Kräuter: nicht prüfbar
+  const f = fridge.map((x) => x.toLowerCase());
+  const has = (n) => f.some((x) => (n === 'ei' ? /^eier?$/.test(x) : x.includes(n)) || (n === 'käse' && /gouda|emmentaler|cheddar|bergkäse/.test(x)));
+  return sub.any ? sub.needs.some(has) : sub.needs.every(has);
+};
+// Tipps für ein Rezept: zuerst fehlende Zutaten, dann Zutaten aus den Arbeitsschritten.
+function tipsFor(r) {
+  const out = [];
+  for (const m of r.missing) {
+    const s = findSub(m);
+    out.push({ key: 'm:' + m, label: m, entry: s, missing: true });
+  }
+  const text = r.steps.join(' ').toLowerCase();
+  for (const s of SUBS) {
+    if (out.some((o) => o.entry === s)) continue;
+    if (s.name === 'Käse' && out.some((o) => o.entry && /parmesan|mozzarella|feta/i.test(o.entry.name))) continue;
+    if (s.name === 'Ei' && out.some((o) => o.entry && o.entry.name === 'Eigelb')) continue;
+    if (s.re.test(text)) out.push({ key: 's:' + s.name, label: s.name, entry: s, missing: false });
+  }
+  return out;
+}
+
+const DEMO_MD = `# Kategorie 1: Sofort kochbar (Zero-Waste)
+
+## Tomaten-Käse-Nudeln
+**Zubereitungszeit:** 20 Minuten
+
+1. Nudeln in reichlich Salzwasser nach Packungsanweisung kochen.
+2. Tomaten würfeln und in einer Pfanne mit etwas Öl 5–7 Minuten zu einer stückigen Sauce einkochen. Mit Salz, Pfeffer und einer Prise Zucker abschmecken.
+3. Nudeln abgießen, dabei eine Tasse Nudelwasser auffangen.
+4. Nudeln zur Sauce geben, Käse reiben und unterheben. Mit etwas Nudelwasser cremig rühren.
+
+## Nudel-Frittata mit Tomaten
+**Zubereitungszeit:** 25 Minuten
+
+1. Nudeln kochen, abgießen und kurz abkühlen lassen. Reste vom Vortag gehen auch.
+2. 4 Eier verquirlen, die Hälfte des Käses hineinreiben, mit Salz und Pfeffer würzen.
+3. Nudeln in einer geölten Pfanne verteilen, Eimasse darübergießen.
+4. Tomatenscheiben auflegen, restlichen Käse darüberstreuen.
+5. Mit Deckel bei mittlerer Hitze 10–12 Minuten stocken lassen.
+
+## Shakshuka-Style Tomaten-Eier
+**Zubereitungszeit:** 20 Minuten
+
+1. Tomaten klein schneiden und in Öl 10 Minuten zu einer dicken Sauce einkochen. Mit Salz, Pfeffer und Zucker würzen.
+2. Mit einem Löffel Mulden in die Sauce drücken und je ein Ei hineinschlagen.
+3. Käse darüberreiben, Deckel drauf und 5–7 Minuten garen, bis das Eiweiß gestockt ist.
+
+# Kategorie 2: Erweiterte Rezepte (Erfordert kleinen Einkauf)
+
+## Spaghetti Carbonara
+**Zubereitungszeit:** 20 Minuten
+
+**🛒 FEHLENDE ZUTATEN: Speck, Knoblauch**
+
+1. Nudeln in Salzwasser kochen.
+2. Speck würfeln und mit gehacktem Knoblauch knusprig anbraten.
+3. 3 Eigelb mit viel geriebenem Käse und Pfeffer verrühren.
+4. Nudeln abgießen, Nudelwasser aufheben, zum Speck geben und die Pfanne vom Herd nehmen.
+5. Eimasse unterrühren und mit Nudelwasser cremig machen. Tomaten als frischen Salat dazu servieren.
+
+## Überbackener Nudelauflauf mit Tomaten
+**Zubereitungszeit:** 45 Minuten
+
+**🛒 FEHLENDE ZUTATEN: Sahne, Zwiebel**
+
+1. Ofen auf 200 °C vorheizen. Nudeln 2 Minuten kürzer als angegeben kochen.
+2. Zwiebel würfeln und anbraten, gewürfelte Tomaten dazugeben und kurz mitkochen.
+3. 2 Eier mit 200 ml Sahne verquirlen, salzen und pfeffern.
+4. Nudeln und Tomatensauce in eine Auflaufform geben, Eiersahne darübergießen.
+5. Großzügig mit Käse bestreuen und 20–25 Minuten goldbraun backen.
+
+## Caprese-Nudelsalat mit Ei
+**Zubereitungszeit:** 25 Minuten
+
+**🛒 FEHLENDE ZUTATEN: Basilikum, Balsamico-Essig**
+
+1. Nudeln kochen und kalt abschrecken.
+2. 2–3 Eier 9 Minuten hart kochen, abschrecken, pellen und vierteln.
+3. Tomaten und Käse würfeln.
+4. Dressing aus Öl, Balsamico, Salz, Pfeffer und einer Prise Zucker anrühren.
+5. Alles vermengen, mit gezupftem Basilikum toppen und 10 Minuten ziehen lassen.`;
+
+const LOADING_LINES = ['Schaut in den Kühlschrank …', 'Kombiniert deine Reste …', 'Schmeckt ab …', 'Schreibt die Einkaufsliste …'];
+
+/* ---------- Helfer ---------- */
+const store = {
+  get(k, fallback) { try { const v = localStorage.getItem('restekoch:' + k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } },
+  set(k, v) { try { localStorage.setItem('restekoch:' + k, JSON.stringify(v)); } catch {} },
+};
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>');
+const plain = (s) => s.replace(/\*\*|__|[*_`]/g, '').replace(/🛒|⏱️?/g, '').trim();
+const afterColon = (s) => plain(s.includes(':') ? s.slice(s.indexOf(':') + 1) : s);
+const minutesOf = (t) => { const m = (t || '').match(/\d+/); return m ? +m[0] : null; };
+
+// Markdown des Chefkoch-Prompts in Kategorien und Rezepte zerlegen.
+function parseRecipes(md) {
+  const cats = [];
+  let cat = null, rec = null;
+  for (const raw of md.split('\n')) {
+    const line = raw.trim();
+    if (!line || /^-{3,}$/.test(line)) continue;
+    if (/^#\s/.test(line)) {
+      const title = plain(line.replace(/^#\s*/, ''));
+      cat = { kind: /kategorie\s*2|erweitert|einkauf/i.test(title) ? 'shop' : 'now', title, recipes: [] };
+      cats.push(cat); rec = null; continue;
+    }
+    if (/^#{2,3}\s/.test(line)) {
+      if (!cat) { cat = { kind: 'now', title: 'Rezepte', recipes: [] }; cats.push(cat); }
+      rec = { id: '', name: plain(line.replace(/^#+\s*(\d+\.\s*)?/, '')), time: '', missing: [], steps: [], kind: cat.kind };
+      rec.id = rec.name.toLowerCase().replace(/[^a-zäöüß0-9]+/g, '-');
+      cat.recipes.push(rec); continue;
+    }
+    if (!rec) continue;
+    if (/zubereitungszeit/i.test(line)) { rec.time = afterColon(line); continue; }
+    if (/fehlende/i.test(line)) {
+      rec.missing = afterColon(line).split(/,|\s+und\s+/).map((x) => x.replace(/\(.*?\)/g, '').trim()).filter(Boolean);
+      continue;
+    }
+    if (/^(\d+[.)]|[-*•])\s+/.test(line)) { rec.steps.push(line.replace(/^(\d+[.)]|[-*•])\s+/, '')); continue; }
+  }
+  return cats.filter((c) => c.recipes.length);
+}
+
+function resizeImage(file, maxSide = 1568) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => reject(new Error('Das Bild konnte nicht gelesen werden. Versuch ein JPG oder PNG.'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// Ruft das Backend auf. Ist keins erreichbar (z. B. Vorschau ohne Server), kommt { demo: true } zurück.
+async function api(url, body) {
+  let res;
+  try {
+    res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } catch { return { demo: true }; }
+  if (res.status === 404 || res.status === 405) return { demo: true };
+  const data = await res.json().catch(() => null);
+  if (!data) return { demo: true };
+  if (!res.ok) throw new Error(data.error || `Fehler ${res.status}`);
+  return data;
+}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ---------- Kleine Bausteine ---------- */
+function Sheet({ onClose, children, label }) {
+  return html`<div className="absolute inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label=${label}>
+    <div className="absolute inset-0 bg-black/45 anim-fade" onClick=${onClose}></div>
+    <div className="relative bg-surface rounded-t-[28px] anim-up max-h-[92%] overflow-y-auto no-scrollbar gutter pt-3" style=${{ paddingBottom: 'max(22px, env(safe-area-inset-bottom, 0px))' }}>
+      <div className="mx-auto w-10 h-1.5 rounded-full bg-line mb-2"></div>
+      <button onClick=${onClose} className="absolute right-4 top-4 w-9 h-9 grid place-items-center rounded-full bg-surface2 text-muted hover:text-ink" aria-label="Schließen"><${Ic.X} size=${18} /></button>
+      ${children}
+    </div>
+  </div>`;
+}
+
+function TimeBadge({ time, big }) {
+  if (!time) return null;
+  const m = minutesOf(time);
+  return html`<span className=${`inline-flex items-center gap-1 rounded-full bg-brand-soft text-brand font-semibold tnum shrink-0 ${big ? 'px-3 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'}`}>
+    <${Ic.Clock} size=${big ? 15 : 13} strokeWidth=${2.4} />${m ? `${m} Min` : time}
+  </span>`;
+}
+
+function RecipeTile({ kind }) {
+  const shop = kind === 'shop';
+  const I = shop ? Ic.ShoppingBasket : Ic.Soup;
+  return html`<div className=${`w-11 h-11 rounded-xl grid place-items-center shrink-0 ${shop ? 'bg-accent-soft text-accent' : 'bg-brand-soft text-brand'}`}><${I} size=${20} strokeWidth=${2.1} /></div>`;
+}
+
+/* ---------- Tab: Kühlschrank ---------- */
+function Fridge({ items, example, shopCount, onAdd, onRemove, onClear, onScan, onCook, onShop }) {
+  const [draft, setDraft] = useState('');
+  const submit = (e) => { e.preventDefault(); onAdd(draft.split(',')); setDraft(''); };
+  const sugg = SUGGEST.filter((s) => !items.some((i) => i.toLowerCase() === s.toLowerCase())).slice(0, 8);
+  return html`<div className="pb-6">
+    <header className="gutter pt-5 pb-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-muted text-sm flex items-center gap-1"><${Ic.Refrigerator} size=${14} />Dein Kühlschrank · <span className="tnum">${items.length}</span> Zutaten</p>
+          <h1 className="font-display text-[28px] leading-tight font-extrabold mt-1">Was ist noch da?</h1>
+        </div>
+        <button onClick=${onShop} className="shrink-0 mt-1 flex items-center gap-1.5 rounded-full bg-ink text-bg pl-2.5 pr-3.5 py-2 text-sm font-semibold tnum hover:opacity-90 transition" aria-label="Einkaufsliste öffnen">
+          <${Ic.ShoppingCart} size=${16} strokeWidth=${2.4} />${shopCount}
+        </button>
+      </div>
+      <form onSubmit=${submit} className="mt-4 flex items-center gap-2 rounded-2xl bg-surface border border-line pl-3.5 pr-1.5 py-1.5 focus-within:border-brand transition">
+        <${Ic.Plus} size=${18} className="text-muted shrink-0" />
+        <label htmlFor="add-input" className="sr-only">Zutat hinzufügen</label>
+        <input id="add-input" value=${draft} onInput=${(e) => setDraft(e.target.value)} placeholder="Zutat hinzufügen, z. B. Paprika" autoComplete="off" className="bg-transparent outline-none flex-1 min-w-0 text-[15px] py-1.5 placeholder:text-muted" />
+        <button type="submit" disabled=${!draft.trim()} className="rounded-xl bg-brand text-onbrand px-3.5 py-2 text-sm font-semibold disabled:opacity-30 transition">Dazu</button>
+      </form>
+      ${sugg.length > 0 && html`<div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar -mx-1 px-1">
+        ${sugg.map((s) => html`<button key=${s} onClick=${() => onAdd([s])} className="shrink-0 rounded-full bg-surface text-muted border border-line px-3 py-1.5 text-sm font-medium hover:text-ink hover:border-brand/40 transition">+ ${s}</button>`)}
+      </div>`}
+    </header>
+
+    <div className="gutter">
+      <button onClick=${onScan} className="w-full text-left flex items-center gap-3.5 rounded-3xl bg-brand-soft px-4 py-3.5 mb-5 hover:brightness-[.98] active:scale-[.99] transition">
+        <div className="w-12 h-12 rounded-2xl bg-brand text-onbrand grid place-items-center shrink-0"><${Ic.ScanLine} size=${24} /></div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Kühlschrank fotografieren</p>
+          <p className="text-sm text-muted leading-snug">Die KI erkennt, was drinliegt, und füllt die Liste für dich.</p>
+        </div>
+        <${Ic.ChevronRight} size=${20} className="text-brand shrink-0" />
+      </button>
+
+      <div className="flex items-baseline justify-between mb-3">
+        <h2 className="font-display text-lg font-bold flex items-center gap-2">Vorrat ${example && html`<span className="rounded-full bg-surface2 text-muted text-[11px] font-semibold px-2 py-0.5 font-sans">Beispiel</span>`}</h2>
+        ${items.length > 0 && html`<button onClick=${onClear} className="text-sm text-muted hover:text-warn">Leeren</button>`}
+      </div>
+
+      ${items.length
+        ? html`<ul className="grid grid-cols-3 gap-2.5">
+            ${items.map((name, i) => html`<li key=${name} className="anim-rise relative" style=${{ animationDelay: `${Math.min(i, 12) * 35}ms` }}>
+              <div className="rounded-2xl bg-surface border border-line px-2 pt-3 pb-2.5 flex flex-col items-center text-center gap-1">
+                <span className="text-[30px] leading-none" aria-hidden="true">${emojiFor(name)}</span>
+                <span className="text-[13px] font-semibold leading-tight break-words w-full">${name}</span>
+              </div>
+              <button onClick=${() => onRemove(name)} className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-surface border border-line text-muted grid place-items-center hover:text-warn hover:border-warn/40" aria-label=${`${name} entfernen`}><${Ic.X} size=${13} strokeWidth=${2.6} /></button>
+            </li>`)}
+          </ul>`
+        : html`<div className="rounded-3xl border-2 border-dashed border-line p-6 text-center">
+            <${Ic.Refrigerator} size=${30} className="mx-auto text-brand" />
+            <p className="font-semibold mt-2">Der Kühlschrank ist leer</p>
+            <p className="text-sm text-muted mt-1">Tipp oben Zutaten ein oder mach ein Foto vom Kühlschrank.</p>
+          </div>`}
+
+      <p className="text-sm text-muted mt-4 flex gap-2"><${Ic.Info} size=${16} className="shrink-0 mt-0.5" /><span>Immer im Haus: ${BASICS.join(', ')}. Die musst du nicht eintragen.</span></p>
+
+      <button onClick=${onCook} disabled=${!items.length} className="mt-5 w-full rounded-2xl bg-brand text-onbrand py-4 font-semibold text-[16px] flex items-center justify-center gap-2 shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[.99] disabled:opacity-40 disabled:shadow-none transition">
+        <${Ic.ChefHat} size=${20} />Rezepte vorschlagen
+      </button>
+    </div>
+  </div>`;
+}
+
+/* ---------- Tab: Rezepte ---------- */
+function Cooking() {
+  const [line, setLine] = useState(0);
+  useEffect(() => { const t = setInterval(() => setLine((l) => (l + 1) % LOADING_LINES.length), 1600); return () => clearInterval(t); }, []);
+  return html`<div className="gutter pt-5 pb-6">
+    <div className="flex flex-col items-center text-center pt-6 pb-8">
+      <div className="relative">
+        <div className="absolute -top-5 left-1/2 -translate-x-1/2 flex gap-1.5">
+          ${[0, 1, 2].map((i) => html`<span key=${i} className="steam block w-1.5 h-4 rounded-full bg-muted/50" style=${{ animationDelay: `${i * 0.4}s` }}></span>`)}
+        </div>
+        <div className="w-20 h-20 rounded-[26px] bg-brand-soft text-brand grid place-items-center wobble"><${Ic.Soup} size=${38} strokeWidth=${1.9} /></div>
+      </div>
+      <p className="font-display text-xl font-bold mt-5">Der Chefkoch denkt nach</p>
+      <p className="text-sm text-muted mt-1" aria-live="polite">${LOADING_LINES[line]}</p>
+    </div>
+    <div className="flex flex-col gap-3" aria-hidden="true">
+      ${[0, 1, 2].map((i) => html`<div key=${i} className="rounded-3xl bg-surface border border-line p-4 flex gap-3.5">
+        <div className="w-11 h-11 rounded-xl skel shrink-0"></div>
+        <div className="flex-1 flex flex-col gap-2 pt-1"><div className="h-4 w-3/5 rounded-full skel"></div><div className="h-3 w-4/5 rounded-full skel"></div></div>
+      </div>`)}
+    </div>
+  </div>`;
+}
+
+function Recipes({ state, saved, onOpen, onCook, onFridge }) {
+  const [filter, setFilter] = useState('alle');
+  if (state.status === 'loading') return html`<${Cooking} />`;
+  if (state.status !== 'done') {
+    return html`<div className="gutter pt-5 pb-6">
+      <h1 className="font-display text-[26px] font-extrabold">Rezepte</h1>
+      <div className="mt-6 rounded-3xl border-2 border-dashed border-line p-6 text-center">
+        <${Ic.ChefHat} size=${32} className="mx-auto text-brand" />
+        <p className="font-semibold mt-2">Noch keine Vorschläge</p>
+        <p className="text-sm text-muted mt-1">Trag ein, was du da hast. Der Chefkoch macht daraus Gerichte, die sofort gehen, und welche mit kleinem Einkauf.</p>
+        <div className="flex flex-wrap justify-center gap-2 mt-4">
+          <button onClick=${onCook} className="rounded-full bg-brand text-onbrand px-5 py-2.5 text-sm font-semibold">Jetzt vorschlagen</button>
+          <button onClick=${onFridge} className="rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-ink">Zutaten ansehen</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const total = state.cats.reduce((n, c) => n + c.recipes.length, 0);
+  const cats = state.cats.filter((c) => filter === 'alle' || c.kind === filter);
+  return html`<div className="pb-6">
+    <header className="gutter pt-5 pb-4">
+      <p className="text-muted text-sm flex items-center gap-1.5 flex-wrap">
+        <${Ic.Sparkles} size=${14} />Aus ${state.basedOn.length} Zutaten · ${total} Ideen
+        ${state.demo && html`<span className="rounded-full bg-accent-soft text-accent text-[11px] font-semibold px-2 py-0.5">Beispieldaten</span>`}
+      </p>
+      <h1 className="font-display text-[28px] leading-tight font-extrabold mt-1">Heute auf dem Herd</h1>
+      <div className="flex gap-2 mt-4 overflow-x-auto no-scrollbar -mx-1 px-1">
+        ${[['alle', 'Alle'], ['now', 'Sofort kochbar'], ['shop', 'Mit Einkauf']].map(([k, label]) => html`
+          <button key=${k} onClick=${() => setFilter(k)} className=${`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === k ? 'bg-brand text-onbrand' : 'bg-surface text-muted border border-line hover:text-ink'}`}>${label}</button>`)}
+      </div>
+    </header>
+
+    <div className="gutter flex flex-col gap-6">
+      ${state.fallbackHtml && html`<article className="prose max-w-none rounded-3xl bg-surface border border-line p-4" dangerouslySetInnerHTML=${{ __html: state.fallbackHtml }}></article>`}
+      ${cats.map((c) => html`<section key=${c.title}>
+        <div className="flex items-baseline justify-between mb-1">
+          <h2 className="font-display text-lg font-bold">${c.kind === 'shop' ? 'Mit kleinem Einkauf' : 'Sofort kochbar'}</h2>
+          <span className="text-sm text-muted tnum">${c.recipes.length}</span>
+        </div>
+        <p className="text-sm text-muted mb-3">${c.kind === 'shop' ? 'Das meiste hast du schon. Ein, zwei Sachen fehlen.' : 'Nur mit dem, was da ist. Null Verschwendung.'}</p>
+        <ul className="flex flex-col gap-3">
+          ${c.recipes.map((r, i) => html`<li key=${r.id} className="anim-rise" style=${{ animationDelay: `${i * 60}ms` }}>
+            <button onClick=${() => onOpen(r)} className="w-full text-left rounded-3xl bg-surface border border-line p-4 flex gap-3.5 hover:border-brand/50 hover:-translate-y-0.5 active:scale-[.99] transition">
+              <${RecipeTile} kind=${r.kind} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-2">
+                  <h3 className="font-semibold text-[16px] leading-snug flex-1 min-w-0">${r.name}</h3>
+                  <${TimeBadge} time=${r.time} />
+                </div>
+                ${r.steps[0] && html`<p className="text-sm text-muted mt-1 leading-snug line-clamp-2">${plain(r.steps[0])}</p>`}
+                <div className="flex items-center gap-2 mt-2.5 text-xs text-muted flex-wrap">
+                  ${r.missing.length
+                    ? html`<span className="rounded-full bg-accent-soft text-accent px-2 py-0.5 font-semibold flex items-center gap-1"><${Ic.ShoppingCart} size=${11} strokeWidth=${2.6} />Fehlt: ${r.missing.join(', ')}</span>`
+                    : html`<span className="rounded-full bg-brand-soft text-brand px-2 py-0.5 font-semibold flex items-center gap-1"><${Ic.Check} size=${11} strokeWidth=${3} />Alles da</span>`}
+                  <span className="flex items-center gap-1"><${Ic.ListOrdered} size=${12} />${r.steps.length} Schritte</span>
+                  ${saved.some((s) => s.id === r.id) && html`<${Ic.Heart} size=${13} className="text-accent" fill="currentColor" />`}
+                </div>
+              </div>
+            </button>
+          </li>`)}
+        </ul>
+      </section>`)}
+      <button onClick=${onCook} className="w-full rounded-2xl border border-line py-3.5 font-semibold text-ink flex items-center justify-center gap-2 hover:bg-surface transition"><${Ic.RefreshCw} size=${17} />Neue Vorschläge</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- Rezept-Detail ---------- */
+function SubTips({ r, fridge, swapped, onSwap }) {
+  const tips = tipsFor(r);
+  const [open, setOpen] = useState(() => tips.filter((t) => t.missing).map((t) => t.key));
+  if (!tips.length) return null;
+  const toggle = (k) => setOpen((o) => (o.includes(k) ? o.filter((x) => x !== k) : [...o, k]));
+  return html`<section className="mt-5">
+    <h3 className="font-display text-lg font-bold flex items-center gap-2"><${Ic.Repeat} size=${18} className="text-brand" />Ersatz-Tipps</h3>
+    <p className="text-sm text-muted mt-0.5 mb-2.5">Fehlt dir etwas? Damit klappt das Rezept trotzdem.</p>
+    <ul className="flex flex-col gap-2">
+      ${tips.map((t) => {
+        const isOpen = open.includes(t.key);
+        const subs = t.entry ? t.entry.subs : [];
+        const ready = subs.filter((x) => subReady(x, fridge));
+        const sw = swapped[t.label];
+        return html`<li key=${t.key} className=${`rounded-2xl border ${t.missing ? 'border-accent/40' : 'border-line'} bg-surface overflow-hidden`}>
+          <button onClick=${() => toggle(t.key)} aria-expanded=${isOpen} className="w-full flex items-center gap-2.5 px-3.5 py-3 text-left">
+            <span aria-hidden="true" className="text-lg">${emojiFor(t.label)}</span>
+            <span className="flex-1 min-w-0">
+              <span className=${`font-semibold block ${sw ? 'line-through text-muted' : ''}`}>${t.label}</span>
+              ${sw
+                ? html`<span className="text-xs font-semibold text-brand flex items-center gap-1"><${Ic.Check} size=${12} strokeWidth=${3} />Ersetzt durch ${sw}</span>`
+                : html`<span className="text-xs text-muted">${t.missing ? 'Fehlt' : 'Im Rezept'}${ready.length && subs.length ? ' · Ersatz im Kühlschrank' : ''}</span>`}
+            </span>
+            ${ready.length > 0 && !sw && html`<span className="w-2 h-2 rounded-full bg-brand shrink-0" aria-hidden="true"></span>`}
+            <${Ic.ChevronDown} size=${18} className=${`text-muted shrink-0 transition ${isOpen ? 'rotate-180' : ''}`} />
+          </button>
+          ${isOpen && html`<div className="px-3.5 pb-3.5 anim-fade">
+            ${subs.length === 0
+              ? html`<p className="text-sm text-muted">Dafür kenne ich keinen guten Ersatz. Lass die Zutat weg oder setz sie auf die Einkaufsliste.</p>`
+              : html`<ul className="flex flex-col gap-2">
+                ${subs.map((x) => {
+                  const ok = subReady(x, fridge);
+                  const chosen = sw === x.with;
+                  return html`<li key=${x.with} className=${`rounded-xl px-3 py-2.5 ${chosen ? 'bg-brand-soft' : 'bg-surface2'}`}>
+                    <div className="flex items-start gap-2">
+                      <p className="flex-1 min-w-0 text-sm leading-snug"><b>${x.with}</b><br /><span className="text-muted">${x.how}</span></p>
+                      ${ok && html`<span className="shrink-0 rounded-full bg-brand-soft text-brand text-[11px] font-bold px-2 py-0.5 flex items-center gap-1"><${Ic.Refrigerator} size=${12} />Da</span>`}
+                    </div>
+                    ${t.missing && html`<button onClick=${() => onSwap(t.label, chosen ? null : x.with)} className=${`mt-2 text-xs font-semibold rounded-full px-3 py-1.5 border transition ${chosen ? 'border-brand text-brand' : 'border-line text-ink hover:border-brand'}`}>
+                      ${chosen ? 'Doch kaufen' : 'Das nehme ich'}
+                    </button>`}
+                  </li>`;
+                })}
+              </ul>`}
+          </div>`}
+        </li>`;
+      })}
+    </ul>
+  </section>`;
+}
+
+function Detail({ r: recipe, fridge, isSaved, shopList, onClose, onSave, onAddShop }) {
+  const [swapped, setSwapped] = useState({});
+  const onSwap = (name, sub) => setSwapped((s) => { const n = { ...s }; if (sub) n[name] = sub; else delete n[name]; return n; });
+  // Ersetzte Zutaten müssen nicht mehr gekauft werden.
+  const r = { ...recipe, missing: recipe.missing.filter((m) => !swapped[m]) };
+  const missingOpen = r.missing.filter((m) => !shopList.some((s) => s.name.toLowerCase() === m.toLowerCase()));
+  return html`<${Sheet} onClose=${onClose} label=${r.name}>
+    <div className="flex items-center gap-2 mt-1 pr-12">
+      <span className=${`rounded-full px-2.5 py-1 text-xs font-semibold ${r.kind === 'shop' ? 'bg-accent-soft text-accent' : 'bg-brand-soft text-brand'}`}>${r.kind === 'shop' ? 'Mit kleinem Einkauf' : 'Sofort kochbar'}</span>
+    </div>
+    <div className="flex items-start gap-3 mt-2">
+      <h2 className="font-display text-[26px] font-extrabold leading-tight flex-1 min-w-0">${r.name}</h2>
+      <button onClick=${() => onSave(recipe)} className=${`w-10 h-10 mt-1 rounded-full grid place-items-center border shrink-0 transition ${isSaved ? 'bg-accent text-onbrand border-accent' : 'border-line text-muted hover:text-ink'}`} aria-pressed=${isSaved} aria-label="Rezept merken">
+        <${Ic.Heart} size=${18} fill=${isSaved ? 'currentColor' : 'none'} />
+      </button>
+    </div>
+
+    <div className="grid grid-cols-2 gap-2.5 mt-4">
+      <div className="rounded-2xl bg-surface2 px-4 py-3">
+        <p className="text-xs text-muted">Zubereitung</p>
+        <p className="font-semibold mt-0.5 flex items-center gap-1.5 tnum"><${Ic.Clock} size=${15} className="text-brand" />${r.time || 'k. A.'}</p>
+      </div>
+      <div className="rounded-2xl bg-surface2 px-4 py-3">
+        <p className="text-xs text-muted">Arbeitsschritte</p>
+        <p className="font-semibold mt-0.5 flex items-center gap-1.5 tnum"><${Ic.ListOrdered} size=${15} className="text-brand" />${r.steps.length}</p>
+      </div>
+    </div>
+
+    ${r.missing.length > 0 && html`<div className="mt-4 rounded-3xl bg-accent-soft p-4">
+      <p className="text-xs uppercase tracking-wider font-bold text-accent flex items-center gap-1.5"><${Ic.ShoppingCart} size=${14} strokeWidth=${2.6} />Fehlende Zutaten</p>
+      <ul className="flex flex-wrap gap-2 mt-2.5">
+        ${r.missing.map((m) => html`<li key=${m} className="rounded-full bg-surface text-ink font-semibold text-sm px-3 py-1.5 flex items-center gap-1.5"><span aria-hidden="true">${emojiFor(m)}</span>${m}</li>`)}
+      </ul>
+      <button onClick=${() => onAddShop(r)} disabled=${!missingOpen.length} className="mt-3.5 w-full rounded-2xl bg-accent text-onbrand py-3 font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 hover:brightness-110 transition">
+        ${missingOpen.length ? html`<${Ic.Plus} size=${17} />Auf die Einkaufsliste` : html`<${Ic.Check} size=${17} />Steht schon auf der Liste`}
+      </button>
+    </div>`}
+
+    ${recipe.missing.length > 0 && r.missing.length === 0 && html`<div className="mt-4 rounded-3xl bg-brand-soft p-4 flex items-center gap-2.5 text-sm font-semibold text-brand"><${Ic.PartyPopper} size=${20} className="shrink-0" />Alles ersetzt – du kannst sofort loskochen!</div>`}
+
+    <${SubTips} r=${recipe} fridge=${fridge} swapped=${swapped} onSwap=${onSwap} />
+
+    <h3 className="font-display text-lg font-bold mt-5 mb-2">So geht's</h3>
+    <ol className="flex flex-col gap-3">
+      ${r.steps.map((s, i) => html`<li key=${i} className="flex gap-3">
+        <span className="w-7 h-7 rounded-full bg-brand-soft text-brand grid place-items-center text-sm font-bold shrink-0 tnum">${i + 1}</span>
+        <p className="text-[15px] leading-relaxed pt-0.5 min-w-0" dangerouslySetInnerHTML=${{ __html: inline(s) }}></p>
+      </li>`)}
+    </ol>
+    <p className="text-xs text-muted mt-5 flex gap-1.5"><${Ic.Info} size=${14} className="shrink-0 mt-px" />Salz, Pfeffer, Öl, Wasser und Zucker setzt das Rezept als vorhanden voraus.</p>
+  <//>`;
+}
+
+/* ---------- Foto-Scan ---------- */
+function Scanner({ onClose, onApply }) {
+  const [photo, setPhoto] = useState(null);
+  const [phase, setPhase] = useState('pick'); // pick | scanning | result
+  const [found, setFound] = useState([]);
+  const [picked, setPicked] = useState([]);
+  const [demo, setDemo] = useState(false);
+  const [error, setError] = useState('');
+  const fileRef = useRef(null);
+
+  const analyze = async (dataUrl) => {
+    setPhase('scanning'); setError('');
+    try {
+      const [data] = await Promise.all([dataUrl ? api('/api/analyze-image', { image: dataUrl }) : Promise.resolve({ demo: true }), wait(1400)]);
+      const list = data.demo ? DEMO_SCAN : data.ingredients;
+      setDemo(!!data.demo); setFound(list); setPicked(list); setPhase('result');
+    } catch (err) {
+      setError(err.message); setPhase('pick');
+    }
+  };
+  const onFile = async (e) => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    if (!f.type.startsWith('image/')) return setError('Das ist keine Bilddatei. Wähl ein Foto im JPG-, PNG- oder WebP-Format.');
+    try { const url = await resizeImage(f); setPhoto(url); analyze(url); } catch (err) { setError(err.message); }
+  };
+  const toggle = (n) => setPicked((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
+
+  return html`<${Sheet} onClose=${onClose} label="Kühlschrank scannen">
+    <h2 className="font-display text-[26px] font-extrabold leading-tight pr-12">Kühlschrank scannen</h2>
+    <p className="text-sm text-muted mt-1">Tür auf, Foto machen. Je heller, desto besser erkennt die KI die Lebensmittel.</p>
+    <input ref=${fileRef} id="scan-photo" type="file" accept="image/*" capture="environment" className="hidden" onChange=${onFile} />
+
+    ${phase === 'pick' && html`<div className="grid grid-cols-2 gap-2 mt-5">
+      <button onClick=${() => fileRef.current && fileRef.current.click()} className="rounded-2xl border-2 border-dashed border-line hover:border-brand/50 py-6 flex flex-col items-center gap-1.5 text-sm font-medium text-muted transition">
+        <${Ic.Camera} size=${24} className="text-brand" />Foto aufnehmen<span className="text-xs font-normal">oder hochladen</span>
+      </button>
+      <button onClick=${() => { setPhoto(null); analyze(null); }} className="rounded-2xl border-2 border-dashed border-line hover:border-brand/50 py-6 flex flex-col items-center gap-1.5 text-sm font-medium text-muted transition">
+        <${Ic.Wand2} size=${24} className="text-accent" />Beispiel-Scan<span className="text-xs font-normal">ohne eigenes Foto</span>
+      </button>
+    </div>`}
+
+    ${phase === 'scanning' && html`<div className="relative mt-5 rounded-3xl overflow-hidden aspect-[4/3] max-w-full bg-surface2 anim-fade">
+      ${photo
+        ? html`<img src=${photo} alt="Dein Kühlschrankfoto" className="w-full h-full object-cover" />`
+        : html`<div className="w-full h-full grid grid-cols-4 place-items-center text-[34px] p-4" aria-hidden="true">${['🥚', '🍅', '🧀', '🥛', '🥒', '🥣', '🫑', '🧈'].map((e) => html`<span key=${e}>${e}</span>`)}</div>`}
+      <div className="absolute inset-0 bg-brand/10"></div>
+      <div className="scanline"></div>
+      <span className="absolute left-3 bottom-3 rounded-full bg-black/60 text-white text-xs px-2.5 py-1 flex items-center gap-1.5"><${Ic.Loader2} size=${12} className="animate-spin" />Erkenne Lebensmittel …</span>
+    </div>`}
+
+    ${phase === 'result' && html`<div className="mt-5 anim-fade">
+      ${demo && html`<p className="rounded-xl bg-surface2 text-muted text-xs px-3 py-2 mb-3 flex gap-2"><${Ic.Info} size=${14} className="shrink-0 mt-px" />Kein Server verbunden. Das sind Beispielzutaten, damit du den Ablauf siehst.</p>`}
+      ${found.length
+        ? html`<p className="text-sm font-semibold mb-2"><span className="tnum">${found.length}</span> Lebensmittel erkannt. Tippe, um welche abzuwählen.</p>
+          <ul className="flex flex-wrap gap-2">
+            ${found.map((n) => { const on = picked.includes(n); return html`<li key=${n}>
+              <button onClick=${() => toggle(n)} aria-pressed=${on} className=${`rounded-full pl-2 pr-3 py-1.5 text-sm font-semibold flex items-center gap-1.5 border-2 transition ${on ? 'bg-brand-soft border-brand text-ink' : 'bg-surface border-line text-muted line-through'}`}>
+                <span aria-hidden="true">${emojiFor(n)}</span>${n}
+              </button>
+            </li>`; })}
+          </ul>
+          <button onClick=${() => onApply(picked)} disabled=${!picked.length} className="mt-5 w-full rounded-2xl bg-brand text-onbrand py-4 font-semibold text-[16px] flex items-center justify-center gap-2 disabled:opacity-40 hover:brightness-110 transition">
+            <${Ic.Check} size=${19} /><span className="tnum">${picked.length}</span> Zutaten übernehmen
+          </button>`
+        : html`<div className="rounded-3xl border-2 border-dashed border-line p-6 text-center">
+            <${Ic.SearchX} size=${28} className="mx-auto text-muted" />
+            <p className="font-semibold mt-2">Nichts erkannt</p>
+            <p className="text-sm text-muted mt-1">Versuch es mit mehr Licht oder näher dran.</p>
+          </div>`}
+      <button onClick=${() => { setPhase('pick'); setPhoto(null); }} className="mt-2.5 w-full rounded-2xl border border-line py-3 font-semibold text-sm text-ink">Neues Foto</button>
+    </div>`}
+
+    ${error && html`<p className="mt-4 rounded-xl bg-warn/10 text-warn text-sm px-3 py-2 flex gap-2 anim-fade" role="alert"><${Ic.AlertCircle} size=${16} className="shrink-0 mt-0.5" />${error}</p>`}
+  <//>`;
+}
+
+/* ---------- Tab: Einkaufsliste ---------- */
+function Shopping({ list, onToggle, onAdd, onClearDone }) {
+  const [draft, setDraft] = useState('');
+  const open = list.filter((x) => !x.done), done = list.filter((x) => x.done);
+  const Row = (x) => html`<li key=${x.name}>
+    <button onClick=${() => onToggle(x.name)} className="w-full text-left flex items-center gap-3 px-4 py-3">
+      <span className=${`w-6 h-6 rounded-lg border-2 grid place-items-center shrink-0 transition ${x.done ? 'bg-brand border-brand text-onbrand' : 'border-line'}`}>${x.done && html`<${Ic.Check} size=${15} strokeWidth=${3} />`}</span>
+      <span className="text-[18px] leading-none" aria-hidden="true">${emojiFor(x.name)}</span>
+      <span className="min-w-0 flex-1">
+        <span className=${`block font-medium text-[15px] ${x.done ? 'line-through text-muted' : ''}`}>${x.name}</span>
+        ${x.from && html`<span className="block text-xs text-muted truncate">für ${x.from}</span>`}
+      </span>
+    </button>
+  </li>`;
+  return html`<div className="gutter pt-5 pb-6">
+    <h1 className="font-display text-[26px] font-extrabold">Einkaufsliste</h1>
+    <p className="text-sm text-muted mt-1">Was für die Rezepte mit kleinem Einkauf noch fehlt.</p>
+    <form onSubmit=${(e) => { e.preventDefault(); onAdd(draft); setDraft(''); }} className="mt-4 flex items-center gap-2 rounded-2xl bg-surface border border-line pl-3.5 pr-1.5 py-1.5 focus-within:border-brand transition">
+      <${Ic.Plus} size=${18} className="text-muted shrink-0" />
+      <label htmlFor="shop-input" className="sr-only">Artikel hinzufügen</label>
+      <input id="shop-input" value=${draft} onInput=${(e) => setDraft(e.target.value)} placeholder="Eigenen Artikel hinzufügen" autoComplete="off" className="bg-transparent outline-none flex-1 min-w-0 text-[15px] py-1.5 placeholder:text-muted" />
+      <button type="submit" disabled=${!draft.trim()} className="rounded-xl bg-brand text-onbrand px-3.5 py-2 text-sm font-semibold disabled:opacity-30">Dazu</button>
+    </form>
+    ${list.length === 0
+      ? html`<div className="mt-6 rounded-3xl border-2 border-dashed border-line p-6 text-center">
+          <${Ic.ShoppingCart} size=${30} className="mx-auto text-accent" />
+          <p className="font-semibold mt-2">Nichts zu besorgen</p>
+          <p className="text-sm text-muted mt-1">Öffne ein Rezept mit kleinem Einkauf und tippe auf „Auf die Einkaufsliste“.</p>
+        </div>`
+      : html`<div>
+          <h2 className="text-xs uppercase tracking-wider font-semibold text-muted mt-6 mb-2">Noch holen · <span className="tnum">${open.length}</span></h2>
+          ${open.length ? html`<ul className="rounded-3xl bg-surface border border-line divide-y divide-line">${open.map(Row)}</ul>` : html`<p className="text-sm text-muted">Alles im Korb.</p>`}
+          ${done.length > 0 && html`<div>
+            <div className="flex items-baseline justify-between mt-6 mb-2">
+              <h2 className="text-xs uppercase tracking-wider font-semibold text-muted">Im Korb · <span className="tnum">${done.length}</span></h2>
+              <button onClick=${onClearDone} className="text-sm text-muted hover:text-ink">In den Kühlschrank</button>
+            </div>
+            <ul className="rounded-3xl bg-surface border border-line divide-y divide-line">${done.map(Row)}</ul>
+          </div>`}
+        </div>`}
+  </div>`;
+}
+
+/* ---------- Tab: Favoriten ---------- */
+function Saved({ saved, onOpen, onRecipes }) {
+  return html`<div className="gutter pt-5 pb-6">
+    <h1 className="font-display text-[26px] font-extrabold">Gemerkt</h1>
+    <p className="text-sm text-muted mt-1">Deine Lieblingsrezepte, auch wenn der Kühlschrank wieder voll ist.</p>
+    ${saved.length
+      ? html`<ul className="flex flex-col gap-2.5 mt-5">${saved.map((r) => html`<li key=${r.id}>
+          <button onClick=${() => onOpen(r)} className="w-full text-left rounded-2xl bg-surface border border-line p-3.5 flex items-center gap-3 hover:border-brand/50 transition">
+            <${RecipeTile} kind=${r.kind} />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold truncate">${r.name}</p>
+              <p className="text-xs text-muted">${r.kind === 'shop' ? `Fehlt: ${r.missing.join(', ')}` : 'Sofort kochbar'}</p>
+            </div>
+            <${TimeBadge} time=${r.time} />
+          </button>
+        </li>`)}</ul>`
+      : html`<div className="mt-6 rounded-3xl border-2 border-dashed border-line p-6 text-center">
+          <${Ic.Heart} size=${30} className="mx-auto text-accent" />
+          <p className="font-semibold mt-2">Noch nichts gemerkt</p>
+          <p className="text-sm text-muted mt-1">Tippe in einem Rezept auf das Herz, um es hier zu sammeln.</p>
+          <button onClick=${onRecipes} className="mt-4 rounded-full bg-brand text-onbrand px-5 py-2.5 text-sm font-semibold">Zu den Rezepten</button>
+        </div>`}
+  </div>`;
+}
+
+/* ---------- App ---------- */
+function App() {
+  const [tab, setTab] = useState('fridge');
+  const [items, setItems] = useState(() => store.get('fridge', null) || EXAMPLE_FRIDGE);
+  const [example, setExample] = useState(() => !store.get('fridge', null));
+  const [recipes, setRecipes] = useState({ status: 'idle' });
+  const [shop, setShop] = useState(() => store.get('shop', []));
+  const [saved, setSaved] = useState(() => store.get('saved', []));
+  const [selected, setSelected] = useState(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const scroller = useRef(null);
+
+  const showToast = (msg, icon = 'CheckCircle2') => setToast({ msg, icon, id: Date.now() });
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2800); return () => clearTimeout(t); }, [toast]);
+  useEffect(() => { if (scroller.current) scroller.current.scrollTop = 0; }, [tab]);
+  useEffect(() => { if (!example) store.set('fridge', items); }, [items, example]);
+  useEffect(() => store.set('shop', shop), [shop]);
+  useEffect(() => store.set('saved', saved), [saved]);
+
+  const go = (t) => { setTab(t); setSelected(null); };
+  const addItems = (list) => {
+    const clean = list.map((x) => x.trim()).filter(Boolean);
+    if (!clean.length) return;
+    setExample(false);
+    setItems((cur) => [...cur, ...clean.filter((n, i) => !cur.some((c) => c.toLowerCase() === n.toLowerCase()) && clean.findIndex((m) => m.toLowerCase() === n.toLowerCase()) === i)]);
+  };
+  const removeItem = (n) => { setExample(false); setItems((cur) => cur.filter((x) => x !== n)); };
+
+  const cook = async () => {
+    if (!items.length) { go('fridge'); return; }
+    const basedOn = [...items];
+    setTab('recipes'); setSelected(null); setRecipes({ status: 'loading' });
+    try {
+      const [data] = await Promise.all([api('/api/recipes', { ingredients: basedOn }), wait(1200)]);
+      const md = data.demo ? DEMO_MD : data.markdown;
+      const cats = parseRecipes(md);
+      setRecipes({
+        status: 'done', demo: !!data.demo, basedOn, cats,
+        fallbackHtml: cats.length ? null : DOMPurify.sanitize(marked.parse(md)),
+      });
+      if (data.demo) showToast('Kein Server verbunden. Du siehst Beispielrezepte.', 'Info');
+    } catch (err) {
+      setRecipes({ status: 'idle' });
+      showToast(err.message, 'AlertCircle');
+    }
+  };
+
+  const toggleSave = (r) => setSaved((s) => {
+    const has = s.some((x) => x.id === r.id);
+    showToast(has ? 'Aus den Favoriten entfernt.' : 'Rezept gemerkt.', has ? 'HeartOff' : 'Heart');
+    return has ? s.filter((x) => x.id !== r.id) : [r, ...s];
+  });
+  const addShop = (r) => {
+    const fresh = r.missing.filter((m) => !shop.some((s) => s.name.toLowerCase() === m.toLowerCase()));
+    setShop((s) => [...s, ...fresh.map((name) => ({ name, from: r.name, done: false }))]);
+    showToast(`${fresh.length} ${fresh.length === 1 ? 'Zutat' : 'Zutaten'} auf der Einkaufsliste.`, 'ShoppingCart');
+  };
+  const toggleShop = (name) => setShop((s) => s.map((x) => (x.name === name ? { ...x, done: !x.done } : x)));
+  const addOwn = (name) => { const n = name.trim(); if (n && !shop.some((s) => s.name.toLowerCase() === n.toLowerCase())) setShop((s) => [...s, { name: n, from: '', done: false }]); };
+  const stockUp = () => {
+    const bought = shop.filter((x) => x.done).map((x) => x.name);
+    addItems(bought);
+    setShop((s) => s.filter((x) => !x.done));
+    showToast(`${bought.length} ${bought.length === 1 ? 'Zutat' : 'Zutaten'} in den Kühlschrank gelegt.`, 'Refrigerator');
+  };
+  const applyScan = (list) => {
+    addItems(list); setScanOpen(false); go('fridge');
+    showToast(`${list.length} Zutaten aus dem Foto übernommen.`, 'ScanLine');
+  };
+
+  const openShop = shop.filter((x) => !x.done).length;
+  const nav = [['fridge', 'Kühlschrank', 'Refrigerator'], ['recipes', 'Rezepte', 'ChefHat'], ['scan'], ['shop', 'Einkauf', 'ShoppingCart'], ['saved', 'Gemerkt', 'Heart']];
+
+  return html`<div className="h-full flex items-center justify-center gap-14 sm:py-6">
+    <aside className="hidden lg:block w-[300px] shrink-0">
+      <p className="text-xs uppercase tracking-[.16em] font-semibold text-brand">Klickbarer Prototyp</p>
+      <h1 className="font-display text-5xl font-extrabold leading-[1.02] mt-3">Restekoch AI</h1>
+      <p className="text-muted mt-4 leading-relaxed">Reste rein, Rezepte raus. Die App erkennt per Foto, was im Kühlschrank liegt, und schlägt Gerichte vor, die sofort gehen oder nur einen kleinen Einkauf brauchen.</p>
+      <ol className="mt-7 flex flex-col gap-3 text-sm">
+        ${['Zutaten eintippen oder Kühlschrank fotografieren', '„Rezepte vorschlagen“ tippen', 'Rezept öffnen und Schritt für Schritt kochen', 'Fehlende Zutaten landen auf der Einkaufsliste'].map((s, i) => html`
+          <li key=${i} className="flex gap-3"><span className="w-6 h-6 rounded-full bg-brand-soft text-brand grid place-items-center text-xs font-bold shrink-0">${i + 1}</span><span className="pt-0.5">${s}</span></li>`)}
+      </ol>
+    </aside>
+
+    <div className="relative w-full h-full sm:w-[400px] sm:h-[844px] sm:max-h-full sm:rounded-[48px] sm:border-[10px] sm:border-[#18221a] sm:shadow-2xl overflow-hidden bg-bg flex flex-col shrink-0">
+      <div className="hidden sm:flex items-center justify-between px-7 pt-3 pb-1 text-xs font-semibold tnum shrink-0">
+        <span>9:41</span>
+        <span className="w-24 h-6 rounded-full bg-[#18221a] -mt-1"></span>
+        <span className="flex items-center gap-1"><${Ic.Signal} size=${14} /><${Ic.Wifi} size=${14} /><${Ic.BatteryFull} size=${16} /></span>
+      </div>
+
+      <main ref=${scroller} className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+        ${tab === 'fridge' && html`<${Fridge} items=${items} example=${example} shopCount=${openShop} onAdd=${addItems} onRemove=${removeItem} onClear=${() => { setExample(false); setItems([]); }} onScan=${() => setScanOpen(true)} onCook=${cook} onShop=${() => go('shop')} />`}
+        ${tab === 'recipes' && html`<${Recipes} state=${recipes} saved=${saved} onOpen=${setSelected} onCook=${cook} onFridge=${() => go('fridge')} />`}
+        ${tab === 'shop' && html`<${Shopping} list=${shop} onToggle=${toggleShop} onAdd=${addOwn} onClearDone=${stockUp} />`}
+        ${tab === 'saved' && html`<${Saved} saved=${saved} onOpen=${setSelected} onRecipes=${() => go('recipes')} />`}
+      </main>
+
+      <nav className="shrink-0 bg-surface border-t border-line gutter pt-1.5 relative z-30" style=${{ paddingBottom: 'max(10px, env(safe-area-inset-bottom, 0px))' }} aria-label="Hauptnavigation">
+        <ul className="grid grid-cols-5 items-end">
+          ${nav.map(([k, label, icon]) => k === 'scan'
+            ? html`<li key="scan" className="flex justify-center">
+                <button onClick=${() => setScanOpen(true)} className="-mt-7 w-[58px] h-[58px] rounded-full bg-brand text-onbrand grid place-items-center shadow-lg shadow-brand/40 ring-4 ring-surface hover:scale-105 active:scale-95 transition" aria-label="Kühlschrank scannen"><${Ic.Camera} size=${26} strokeWidth=${2.4} /></button>
+              </li>`
+            : html`<li key=${k}>
+                <button onClick=${() => go(k)} aria-current=${tab === k ? 'page' : undefined} className=${`relative w-full flex flex-col items-center gap-0.5 py-1.5 text-[11px] font-semibold transition ${tab === k ? 'text-brand' : 'text-muted hover:text-ink'}`}>
+                  ${React.createElement(Ic[icon], { size: 22, strokeWidth: tab === k ? 2.5 : 2 })}${label}
+                  ${k === 'shop' && openShop > 0 && html`<span className="absolute top-0.5 left-1/2 ml-2 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-onbrand text-[10px] font-bold grid place-items-center tnum">${openShop}</span>`}
+                </button>
+              </li>`)}
+        </ul>
+      </nav>
+
+      ${selected && html`<${Detail} key=${selected.id} r=${selected} fridge=${[...items, ...BASICS]} isSaved=${saved.some((s) => s.id === selected.id)} shopList=${shop} onClose=${() => setSelected(null)} onSave=${toggleSave} onAddShop=${addShop} />`}
+      ${scanOpen && html`<${Scanner} onClose=${() => setScanOpen(false)} onApply=${applyScan} />`}
+
+      ${toast && html`<div key=${toast.id} className="toast absolute left-1/2 top-12 -translate-x-1/2 z-[60] w-[calc(100%-32px)] max-w-[360px] rounded-2xl bg-ink text-bg px-4 py-3 shadow-2xl flex items-center gap-2.5 text-sm font-medium" role="status">
+        ${React.createElement(Ic[toast.icon], { size: 18, className: 'shrink-0' })}${toast.msg}
+      </div>`}
+    </div>
+  </div>`;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
+</script>
+
+</body></html>

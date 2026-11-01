@@ -1,0 +1,2 @@
+Die Bibliotheken (React, Tailwind usw.) werden beim Bauen auf GitHub automatisch hier abgelegt.
+Damit läuft die App auch ohne Internet.

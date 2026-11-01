@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Schüssel mit Dampf -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M31,56 L77,56 A23,23 0 0,1 31,56 Z" />
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M28,52 L80,52 A2,2 0 0,1 82,54 L82,56 L26,56 L26,54 A2,2 0 0,1 28,52 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5" android:strokeLineCap="round"
+        android:pathData="M44,46 C40,42 48,39 44,34 M54,46 C50,42 58,39 54,34 M64,46 C60,42 68,39 64,34" />
+    <path android:fillColor="#F4A08A"
+        android:pathData="M47,62 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z" />
+</vector>
